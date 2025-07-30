@@ -154,7 +154,7 @@ export function ResumeBuilder({ initialTemplate = 'modern' }: { initialTemplate?
     }));
   };
 
-  const updatePhoto = (photo: string | undefined, adjustments?: {
+  const updatePhoto = (photo: string | null, adjustments?: {
     scale: number;
     translateX: number;
     translateY: number;
@@ -225,7 +225,7 @@ export function ResumeBuilder({ initialTemplate = 'modern' }: { initialTemplate?
             ) : (
               <Download className="h-4 w-4 mr-2" />
             )}
-            Generate & Print
+            Generate PDF
           </Button>
         </div>
       </div>
@@ -259,7 +259,7 @@ export function ResumeBuilder({ initialTemplate = 'modern' }: { initialTemplate?
         <Alert>
           <CheckCircle className="h-4 w-4" />
           <AlertDescription>
-            Resume generated successfully! A new window should open with your resume. If not, check your Downloads folder for the HTML file and open it in your browser, then use Ctrl+P (or Cmd+P) to save as PDF.
+            Resume generated successfully! A new window should open with your resume. Use the print button or Ctrl+P (Cmd+P on Mac) to save as PDF.
           </AlertDescription>
         </Alert>
       )}

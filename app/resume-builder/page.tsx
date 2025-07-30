@@ -1,43 +1,58 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { 
+  ChevronLeft, 
+  Home, 
   Download, 
-  Eye, 
-  Plus, 
-  Trash2, 
-  Loader2,
+  Loader2, 
+  AlertCircle, 
   CheckCircle,
-  AlertCircle,
-  ChevronLeft,
-  Home,
-  Menu
+  Plus,
+  Trash2,
+  ChevronRight,
+  Eye
 } from 'lucide-react';
-import { ResumeData, PersonalInfo, Experience, Education } from '@/types/resume';
-import { getResumePreviewData } from '@/lib/pdf-utils';
 import { AVAILABLE_TEMPLATES } from '@/lib/templates';
+import { ResumeData, PersonalInfo, Experience, Education } from '@/types/resume';
+import { downloadPDF, validateResumeData, getResumePreviewData } from '@/lib/pdf-utils';
 import { SkillsInput } from '@/components/builder/skills-input';
 import { PhotoUpload } from '@/components/builder/photo-upload';
 import { ResumePreview } from '@/components/builder/resume-preview';
+import { StepProgress } from '@/components/builder/step-progress';
+
+type Step = 'personal' | 'experience' | 'education' | 'skills' | 'languages';
 
 export default function ResumeBuilderPage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const [resumeData, setResumeData] = useState<ResumeData>(getResumePreviewData());
+  const searchParams = useSearchParams();
   const [selectedTemplate, setSelectedTemplate] = useState('modern');
+  const [currentStep, setCurrentStep] = useState<Step>('personal');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Initialize resume data state with sample data
+  const [resumeData, setResumeData] = useState<ResumeData>(getResumePreviewData());
+
+  const steps = [
+    { id: 'personal', title: 'Personal Info', description: 'Basic information and summary' },
+    { id: 'experience', title: 'Experience', description: 'Work history and achievements' },
+    { id: 'education', title: 'Education', description: 'Academic background' },
+    { id: 'skills', title: 'Skills', description: 'Competencies and expertise' },
+    { id: 'languages', title: 'Languages', description: 'Language proficiencies' }
+  ];
+
+  const currentStepIndex = steps.findIndex(step => step.id === currentStep);
 
   // Get template from URL params
   useEffect(() => {
@@ -48,6 +63,20 @@ export default function ResumeBuilderPage() {
   }, [searchParams]);
 
   const currentTemplateData = AVAILABLE_TEMPLATES.find(t => t.id === selectedTemplate);
+
+  const nextStep = () => {
+    const nextIndex = currentStepIndex + 1;
+    if (nextIndex < steps.length) {
+      setCurrentStep(steps[nextIndex].id as Step);
+    }
+  };
+
+  const prevStep = () => {
+    const prevIndex = currentStepIndex - 1;
+    if (prevIndex >= 0) {
+      setCurrentStep(steps[prevIndex].id as Step);
+    }
+  };
   
   const updatePersonalInfo = (field: keyof PersonalInfo, value: string) => {
     setResumeData(prev => ({
@@ -66,7 +95,7 @@ export default function ResumeBuilderPage() {
     }));
   };
 
-  const updatePhoto = (photo: string | undefined, adjustments?: {
+  const updatePhoto = (photo: string | null, adjustments?: {
     scale: number;
     translateX: number;
     translateY: number;
@@ -147,7 +176,14 @@ export default function ResumeBuilderPage() {
   const updateSkills = (skills: string[]) => {
     setResumeData(prev => ({
       ...prev,
-      skills,
+      skills: skills,
+    }));
+  };
+
+  const updateLanguages = (languages: string[]) => {
+    setResumeData(prev => ({
+      ...prev,
+      languages: languages,
     }));
   };
 
@@ -157,34 +193,19 @@ export default function ResumeBuilderPage() {
     setSuccess(false);
 
     try {
-      const response = await fetch('/api/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          resumeData,
-          template: selectedTemplate,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate PDF');
+      // Validate the resume data first
+      const validation = validateResumeData(resumeData);
+      if (!validation.isValid) {
+        setErrors(validation.errors);
+        setLoading(false);
+        return;
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${resumeData.personalInfo.name.replace(/\s+/g, '_')}_Resume.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
+      // Use the new downloadPDF function
+      await downloadPDF(resumeData, selectedTemplate);
       setSuccess(true);
     } catch (error) {
-      setErrors([error instanceof Error ? error.message : 'Failed to generate PDF']);
+      setErrors([error instanceof Error ? error.message : 'Failed to generate resume']);
     } finally {
       setLoading(false);
     }
@@ -201,7 +222,7 @@ export default function ResumeBuilderPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Button
@@ -239,7 +260,7 @@ export default function ResumeBuilderPage() {
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              Generate PDF
+              Generate Resume
             </Button>
           </div>
         </div>
@@ -247,7 +268,7 @@ export default function ResumeBuilderPage() {
 
       {/* Alerts */}
       {errors.length > 0 && (
-        <div className="px-6 py-4">
+        <div className="px-4 py-4">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -262,316 +283,403 @@ export default function ResumeBuilderPage() {
       )}
 
       {success && (
-        <div className="px-6 py-4">
+        <div className="px-4 py-4">
           <Alert>
             <CheckCircle className="h-4 w-4" />
             <AlertDescription>
-              PDF generated successfully! Your download should start automatically.
+              Resume generated successfully! A new window should open with your resume. Use the print button or Ctrl+P (Cmd+P on Mac) to save as PDF.
             </AlertDescription>
           </Alert>
         </div>
       )}
 
-      {/* Main Content - Side by Side Layout */}
-      <div className="flex h-[calc(100vh-120px)]">
-        {/* Left Side - Form (40% width) */}
-        <div className="w-2/5 bg-white border-r border-gray-200 overflow-y-auto">
-          <div className="p-6">
-            <Card className="border-0 shadow-none">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Menu className="h-5 w-5" />
-                  Resume Form
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="personal" className="space-y-4">
-                  <TabsList className="grid w-full grid-cols-5 gap-1">
-                    <TabsTrigger value="personal" className="text-xs">Personal</TabsTrigger>
-                    <TabsTrigger value="summary" className="text-xs">Summary</TabsTrigger>
-                    <TabsTrigger value="experience" className="text-xs">Experience</TabsTrigger>
-                    <TabsTrigger value="education" className="text-xs">Education</TabsTrigger>
-                    <TabsTrigger value="skills" className="text-xs">Skills</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="personal" className="space-y-4">
-                    <div className="space-y-4">
-                      {/* Photo Upload - Only show if template supports it */}
-                      {currentTemplateData?.hasPhoto && (
-                        <PhotoUpload
-                          photo={resumeData.personalInfo.photo}
-                          onPhotoChange={updatePhoto}
-                          name={resumeData.personalInfo.name}
-                          photoAdjustments={resumeData.personalInfo.photoAdjustments}
+      {/* Main Content */}
+      <div className="w-full px-4 pb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl mx-auto">
+          {/* Form */}
+          <div className="space-y-6">
+            {currentStep === 'personal' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Personal Info</CardTitle>
+                  {/* Step Progress Bar */}
+                  <div className="pt-4">
+                    <StepProgress 
+                      steps={steps} 
+                      currentStep={currentStep} 
+                      onStepClick={(stepId) => setCurrentStep(stepId as Step)}
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Personal Information Step */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="name">Full Name</Label>
+                        <Input
+                          id="name"
+                          value={resumeData.personalInfo.name}
+                          onChange={(e) => updatePersonalInfo('name', e.target.value)}
+                          placeholder="John Doe"
                         />
-                      )}
-
-                      <div className="grid grid-cols-1 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="name">Full Name</Label>
-                          <Input
-                            id="name"
-                            value={resumeData.personalInfo.name}
-                            onChange={(e) => updatePersonalInfo('name', e.target.value)}
-                            placeholder="John Doe"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="title">Professional Title</Label>
-                          <Input
-                            id="title"
-                            value={resumeData.personalInfo.title}
-                            onChange={(e) => updatePersonalInfo('title', e.target.value)}
-                            placeholder="Software Engineer"
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                              id="email"
-                              type="email"
-                              value={resumeData.personalInfo.email}
-                              onChange={(e) => updatePersonalInfo('email', e.target.value)}
-                              placeholder="john@example.com"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="phone">Phone</Label>
-                            <Input
-                              id="phone"
-                              value={resumeData.personalInfo.phone}
-                              onChange={(e) => updatePersonalInfo('phone', e.target.value)}
-                              placeholder="+1 (555) 123-4567"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="location">Location</Label>
-                            <Input
-                              id="location"
-                              value={resumeData.personalInfo.location || ''}
-                              onChange={(e) => updatePersonalInfo('location', e.target.value)}
-                              placeholder="San Francisco, CA"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="linkedin">LinkedIn</Label>
-                            <Input
-                              id="linkedin"
-                              value={resumeData.personalInfo.linkedin || ''}
-                              onChange={(e) => updatePersonalInfo('linkedin', e.target.value)}
-                              placeholder="linkedin.com/in/johndoe"
-                            />
-                          </div>
-                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="title">Professional Title</Label>
+                        <Input
+                          id="title"
+                          value={resumeData.personalInfo.title}
+                          onChange={(e) => updatePersonalInfo('title', e.target.value)}
+                          placeholder="Software Engineer"
+                        />
                       </div>
                     </div>
-                  </TabsContent>
+                    
+                    <div>
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={resumeData.personalInfo.email}
+                        onChange={(e) => updatePersonalInfo('email', e.target.value)}
+                        placeholder="john.doe@example.com"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input
+                        id="phone"
+                        value={resumeData.personalInfo.phone}
+                        onChange={(e) => updatePersonalInfo('phone', e.target.value)}
+                        placeholder="+1 (555) 123-4567"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="location">Location</Label>
+                      <Input
+                        id="location"
+                        value={resumeData.personalInfo.location}
+                        onChange={(e) => updatePersonalInfo('location', e.target.value)}
+                        placeholder="San Francisco, CA"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="linkedin">LinkedIn (Optional)</Label>
+                      <Input
+                        id="linkedin"
+                        value={resumeData.personalInfo.linkedin}
+                        onChange={(e) => updatePersonalInfo('linkedin', e.target.value)}
+                        placeholder="linkedin.com/in/johndoe"
+                      />
+                    </div>
 
-                  <TabsContent value="summary" className="space-y-4">
-                    <div className="space-y-2">
+                    {currentTemplateData?.hasPhoto && (
+                      <div>
+                        <Label>Profile Photo (Optional)</Label>
+                        <PhotoUpload
+                          photo={resumeData.personalInfo.photo || null}
+                          onPhotoChange={updatePhoto}
+                        />
+                      </div>
+                    )}
+
+                    <div>
                       <Label htmlFor="summary">Professional Summary</Label>
                       <Textarea
                         id="summary"
-                        value={resumeData.summary || ''}
+                        value={resumeData.summary}
                         onChange={(e) => updateSummary(e.target.value)}
-                        placeholder="Write a compelling professional summary..."
+                        placeholder="Write a compelling summary of your professional background, key achievements, and career objectives..."
                         rows={6}
                       />
                     </div>
-                  </TabsContent>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-                  <TabsContent value="experience" className="space-y-4">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium">Work Experience</h3>
-                        <Button onClick={addExperience} size="sm">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Experience
-                        </Button>
+            {currentStep === 'experience' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Experience</CardTitle>
+                  {/* Step Progress Bar */}
+                  <div className="pt-4">
+                    <StepProgress 
+                      steps={steps} 
+                      currentStep={currentStep} 
+                      onStepClick={(stepId) => setCurrentStep(stepId as Step)}
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Experience Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-lg font-semibold">Work Experience</h4>
+                      <Button onClick={addExperience} variant="outline" size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Experience
+                      </Button>
+                    </div>
+                    
+                    {resumeData.experience?.map((exp, index) => (
+                      <div key={index} className="border rounded-lg p-4 space-y-4">
+                        <div className="flex justify-between items-start">
+                          <h5 className="font-medium">Experience {index + 1}</h5>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeExperience(index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Company</Label>
+                            <Input
+                              value={exp.company}
+                              onChange={(e) => updateExperience(index, 'company', e.target.value)}
+                              placeholder="Company Name"
+                            />
+                          </div>
+                          <div>
+                            <Label>Position</Label>
+                            <Input
+                              value={exp.position}
+                              onChange={(e) => updateExperience(index, 'position', e.target.value)}
+                              placeholder="Job Title"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Start Date</Label>
+                            <Input
+                              value={exp.startDate}
+                              onChange={(e) => updateExperience(index, 'startDate', e.target.value)}
+                              placeholder="2020-01"
+                            />
+                          </div>
+                          <div>
+                            <Label>End Date</Label>
+                            <Input
+                              value={exp.endDate}
+                              onChange={(e) => updateExperience(index, 'endDate', e.target.value)}
+                              placeholder="Present or 2023-12"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <Label>Description</Label>
+                          <Textarea
+                            value={exp.description}
+                            onChange={(e) => updateExperience(index, 'description', e.target.value)}
+                            placeholder="Describe your responsibilities and achievements..."
+                            rows={3}
+                          />
+                        </div>
                       </div>
-                      
-                      {resumeData.experience?.map((exp, index) => (
-                        <Card key={index}>
-                          <CardContent className="p-4">
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between">
-                                <h4 className="font-medium">Experience {index + 1}</h4>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => removeExperience(index)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label>Company</Label>
-                                    <Input
-                                      value={exp.company}
-                                      onChange={(e) => updateExperience(index, 'company', e.target.value)}
-                                      placeholder="Tech Corp"
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label>Position</Label>
-                                    <Input
-                                      value={exp.position}
-                                      onChange={(e) => updateExperience(index, 'position', e.target.value)}
-                                      placeholder="Software Engineer"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label>Start Date</Label>
-                                    <Input
-                                      value={exp.startDate}
-                                      onChange={(e) => updateExperience(index, 'startDate', e.target.value)}
-                                      placeholder="Jan 2020"
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label>End Date</Label>
-                                    <Input
-                                      value={exp.endDate || ''}
-                                      onChange={(e) => updateExperience(index, 'endDate', e.target.value)}
-                                      placeholder="Present"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Description</Label>
-                                  <Textarea
-                                    value={exp.description}
-                                    onChange={(e) => updateExperience(index, 'description', e.target.value)}
-                                    placeholder="Describe your responsibilities and achievements..."
-                                    rows={4}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </TabsContent>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-                  <TabsContent value="education" className="space-y-4">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium">Education</h3>
-                        <Button onClick={addEducation} size="sm">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Education
-                        </Button>
+            {currentStep === 'education' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Education</CardTitle>
+                  {/* Step Progress Bar */}
+                  <div className="pt-4">
+                    <StepProgress 
+                      steps={steps} 
+                      currentStep={currentStep} 
+                      onStepClick={(stepId) => setCurrentStep(stepId as Step)}
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Education Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-lg font-semibold">Education</h4>
+                      <Button onClick={addEducation} variant="outline" size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Education
+                      </Button>
+                    </div>
+                    
+                    {resumeData.education?.map((edu, index) => (
+                      <div key={index} className="border rounded-lg p-4 space-y-4">
+                        <div className="flex justify-between items-start">
+                          <h5 className="font-medium">Education {index + 1}</h5>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeEducation(index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>School</Label>
+                            <Input
+                              value={edu.school}
+                              onChange={(e) => updateEducation(index, 'school', e.target.value)}
+                              placeholder="University Name"
+                            />
+                          </div>
+                          <div>
+                            <Label>Degree</Label>
+                            <Input
+                              value={edu.degree}
+                              onChange={(e) => updateEducation(index, 'degree', e.target.value)}
+                              placeholder="Bachelor of Science"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Field of Study</Label>
+                            <Input
+                              value={edu.field}
+                              onChange={(e) => updateEducation(index, 'field', e.target.value)}
+                              placeholder="Computer Science"
+                            />
+                          </div>
+                          <div>
+                            <Label>Graduation Year</Label>
+                            <Input
+                              value={edu.graduationYear}
+                              onChange={(e) => updateEducation(index, 'graduationYear', e.target.value)}
+                              placeholder="2020"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <Label>GPA (Optional)</Label>
+                          <Input
+                            value={edu.gpa}
+                            onChange={(e) => updateEducation(index, 'gpa', e.target.value)}
+                            placeholder="3.8"
+                          />
+                        </div>
                       </div>
-                      
-                      {resumeData.education?.map((edu, index) => (
-                        <Card key={index}>
-                          <CardContent className="p-4">
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between">
-                                <h4 className="font-medium">Education {index + 1}</h4>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => removeEducation(index)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label>School</Label>
-                                    <Input
-                                      value={edu.school}
-                                      onChange={(e) => updateEducation(index, 'school', e.target.value)}
-                                      placeholder="University of Technology"
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label>Degree</Label>
-                                    <Input
-                                      value={edu.degree}
-                                      onChange={(e) => updateEducation(index, 'degree', e.target.value)}
-                                      placeholder="Bachelor of Science"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label>Field of Study</Label>
-                                    <Input
-                                      value={edu.field || ''}
-                                      onChange={(e) => updateEducation(index, 'field', e.target.value)}
-                                      placeholder="Computer Science"
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label>Graduation Year</Label>
-                                    <Input
-                                      value={edu.graduationYear}
-                                      onChange={(e) => updateEducation(index, 'graduationYear', e.target.value)}
-                                      placeholder="2020"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>GPA (Optional)</Label>
-                                  <Input
-                                    value={edu.gpa || ''}
-                                    onChange={(e) => updateEducation(index, 'gpa', e.target.value)}
-                                    placeholder="3.8"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </TabsContent>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-                  <TabsContent value="skills" className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Skills</Label>
-                      <SkillsInput
-                        skills={resumeData.skills || []}
-                        onSkillsChange={updateSkills}
-                      />
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
+            {currentStep === 'skills' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Skills</CardTitle>
+                  {/* Step Progress Bar */}
+                  <div className="pt-4">
+                    <StepProgress 
+                      steps={steps} 
+                      currentStep={currentStep} 
+                      onStepClick={(stepId) => setCurrentStep(stepId as Step)}
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Skills Section */}
+                  <div className="pt-4">
+                    <Label>Skills & Competencies</Label>
+                    <SkillsInput
+                      skills={resumeData.skills || []}
+                      onSkillsChange={updateSkills}
+                      jobRole={resumeData.personalInfo.title}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {currentStep === 'languages' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Languages</CardTitle>
+                  {/* Step Progress Bar */}
+                  <div className="pt-4">
+                    <StepProgress 
+                      steps={steps} 
+                      currentStep={currentStep} 
+                      onStepClick={(stepId) => setCurrentStep(stepId as Step)}
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Languages Section */}
+                  <div className="pt-4">
+                    <Label>Language Proficiencies</Label>
+                    <SkillsInput
+                      skills={resumeData.languages || []}
+                      onSkillsChange={updateLanguages}
+                      jobRole={resumeData.personalInfo.title}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Navigation */}
+            <div className="flex items-center justify-between">
+              <Button
+                variant="outline"
+                onClick={prevStep}
+                disabled={currentStepIndex === 0}
+              >
+                <ChevronLeft className="h-4 w-4 mr-2" />
+                Previous
+              </Button>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Step {currentStepIndex + 1} of {steps.length}
+                </span>
+              </div>
+              
+              <Button
+                onClick={nextStep}
+                disabled={currentStepIndex === steps.length - 1}
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
           </div>
-        </div>
 
-        {/* Right Side - Preview (60% width) */}
-        <div className="w-3/5 bg-gray-50 overflow-y-auto">
-          <div className="p-6">
-            <Card className="border-0 shadow-none">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Eye className="h-5 w-5" />
-                  Live Preview
-                </CardTitle>
+          {/* Preview */}
+          <div className="lg:sticky lg:top-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Live Preview</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{currentTemplateData?.name}</Badge>
+                  <Badge variant="outline" className="text-green-600 border-green-600">
+                    <Eye className="h-3 w-3 mr-1" />
+                    Live
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent>
-                <ResumePreview 
-                  data={resumeData} 
-                  template={selectedTemplate}
-                />
+                <ResumePreview data={resumeData} template={selectedTemplate} />
               </CardContent>
             </Card>
           </div>

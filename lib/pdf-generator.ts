@@ -2,58 +2,93 @@ import { ResumeData } from '@/types/resume';
 import { generateHTML } from './html-generator';
 
 export async function generatePDF(data: ResumeData, template: string = 'modern'): Promise<Buffer> {
-  console.log('Generating HTML for PDF');
+  console.log('Generating HTML for PDF conversion for template:', template);
   
   // Use the same HTML generator as the live preview
   const html = generateHTML(data, template);
   
-  // Add print-specific scripts and styles
-  const htmlWithPrintScripts = html.replace('</head>', `
-    <script>
-      // Wait for content to be fully loaded before triggering print
-      window.onload = function() {
-        // Wait a bit longer to ensure all content is rendered
-        setTimeout(function() {
-          try {
-            window.print();
-          } catch (error) {
-            console.log('Auto-print failed, user can use manual print button');
-          }
-        }, 1000);
-      };
-      
-      // Manual print function
-      function printResume() {
-        try {
-          window.print();
-        } catch (error) {
-          alert('Print failed. Please try using Ctrl+P or Cmd+P to print manually.');
+  // Add print-specific styles and scripts for better PDF conversion
+  const htmlWithPrintStyles = html.replace('</head>', `
+    <style>
+      @media print {
+        body { 
+          margin: 0; 
+          padding: 20px; 
+          font-size: 12px; 
+          line-height: 1.4;
+        }
+        .page { 
+          page-break-after: always; 
+          margin-bottom: 20px;
+        }
+        .section { 
+          page-break-inside: avoid; 
+          margin-bottom: 15px;
+        }
+        .experience-item, .education-item { 
+          page-break-inside: avoid; 
+          margin-bottom: 10px;
         }
       }
       
-      // Handle print events
-      window.addEventListener('beforeprint', function() {
-        console.log('Printing resume...');
-      });
+      /* Ensure consistent rendering */
+      * {
+        box-sizing: border-box;
+      }
       
-      window.addEventListener('afterprint', function() {
-        console.log('Print completed');
-      });
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: white;
+        color: #333;
+        line-height: 1.6;
+        max-width: 210mm;
+        margin: 0 auto;
+      }
       
-      // Fallback: if onload doesn't work, try after DOMContentLoaded
-      document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(function() {
-          if (document.readyState === 'complete') {
-            try {
-              window.print();
-            } catch (error) {
-              console.log('Auto-print failed on DOMContentLoaded');
-            }
-          }
-        }, 1500);
-      });
-    </script>
-    <style>
+      /* Ensure images are properly sized */
+      img {
+        max-width: 100%;
+        height: auto;
+      }
+      
+      /* Ensure proper page breaks */
+      .page-break {
+        page-break-before: always;
+      }
+      
+      /* Print instructions */
+      .print-instructions {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: #f3f4f6;
+        border: 1px solid #d1d5db;
+        padding: 15px;
+        border-radius: 5px;
+        font-size: 12px;
+        max-width: 300px;
+        z-index: 1000;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      .print-instructions h3 {
+        margin: 0 0 10px 0;
+        color: #1f2937;
+        font-size: 14px;
+      }
+      
+      .print-instructions ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+      
+      .print-instructions li {
+        margin-bottom: 5px;
+        color: #374151;
+      }
+      
       .print-button {
         position: fixed;
         top: 20px;
@@ -66,50 +101,54 @@ export async function generatePDF(data: ResumeData, template: string = 'modern')
         cursor: pointer;
         font-size: 14px;
         z-index: 1000;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
       
       .print-button:hover {
         background: #1d4ed8;
       }
       
-      .instructions {
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        background: #f3f4f6;
-        border: 1px solid #d1d5db;
-        padding: 15px;
-        border-radius: 5px;
-        font-size: 12px;
-        max-width: 300px;
-        z-index: 1000;
-      }
-      
-      .instructions h3 {
-        margin: 0 0 10px 0;
-        color: #1f2937;
-      }
-      
-      .instructions ul {
-        margin: 0;
-        padding-left: 20px;
-      }
-      
-      .instructions li {
-        margin-bottom: 5px;
-        color: #374151;
-      }
-      
       @media print {
         .print-button,
-        .instructions {
+        .print-instructions {
           display: none;
         }
       }
     </style>
+    <script>
+      // Auto-print functionality
+      window.onload = function() {
+        // Wait a bit for content to be fully rendered
+        setTimeout(function() {
+          // Show instructions instead of auto-printing
+          console.log('Resume ready for printing');
+        }, 1000);
+      };
+      
+      // Manual print function
+      function printResume() {
+        try {
+          window.print();
+        } catch (error) {
+          alert('Print failed. Please try using Ctrl+P (Windows) or Cmd+P (Mac) to print manually.');
+        }
+      }
+      
+      // Handle print events
+      window.addEventListener('beforeprint', function() {
+        console.log('Printing resume...');
+      });
+      
+      window.addEventListener('afterprint', function() {
+        console.log('Print completed');
+      });
+    </script>
     </head>
-    <body>
-      <div class="instructions">
+  `);
+  
+  // Add print instructions and button at the beginning of the body
+  const htmlWithPrintElements = htmlWithPrintStyles.replace('<body>', `<body>
+      <div class="print-instructions">
         <h3>📄 How to Save as PDF:</h3>
         <ul>
           <li>Click "Print Resume" button, or</li>
@@ -121,7 +160,8 @@ export async function generatePDF(data: ResumeData, template: string = 'modern')
       <button class="print-button" onclick="printResume()">🖨️ Print Resume</button>
   `);
   
-  console.log('HTML generated successfully, size:', htmlWithPrintScripts.length);
+  console.log('HTML generated successfully, size:', htmlWithPrintElements.length);
   
-  return Buffer.from(htmlWithPrintScripts, 'utf-8');
+  // Return HTML as buffer - this will be converted to PDF by the browser
+  return Buffer.from(htmlWithPrintElements, 'utf-8');
 } 

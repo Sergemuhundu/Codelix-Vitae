@@ -2,7 +2,7 @@ import { ResumeData } from '@/types/resume';
 
 export async function downloadPDF(resumeData: ResumeData, template: string = 'modern'): Promise<void> {
   try {
-    console.log('Starting HTML download for template:', template);
+    console.log('Starting HTML generation for template:', template);
     
     // Validate data before sending
     if (!resumeData || typeof resumeData !== 'object') {
@@ -64,7 +64,7 @@ export async function downloadPDF(resumeData: ResumeData, template: string = 'mo
       const errorText = await response?.text() || 'No response from server';
       console.error('Server error response:', errorText);
       
-      let errorMessage = 'Failed to generate PDF';
+      let errorMessage = 'Failed to generate resume';
       try {
         const errorData = JSON.parse(errorText);
         errorMessage = errorData.error || errorMessage;
@@ -84,24 +84,58 @@ export async function downloadPDF(resumeData: ResumeData, template: string = 'mo
     
     console.log('HTML content received, length:', htmlContent.length);
     
-    // Try to open in new window first
-    try {
-      const newWindow = window.open('', '_blank');
-      if (newWindow) {
-        // Write the HTML content to the new window
-        newWindow.document.write(htmlContent);
-        newWindow.document.close();
-        console.log('PDF download completed successfully - opened in new window');
-        return;
-      }
-    } catch (windowError) {
-      console.log('Failed to open new window, trying download method:', windowError);
-    }
-    
-    // Fallback: Create downloadable HTML file
-    console.log('Using download method - creating downloadable HTML file');
+    // Create a blob URL for the HTML content
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
+    
+    console.log('Blob URL created:', url);
+    
+    // Try multiple methods to open the window
+    let windowOpened = false;
+    
+    // Method 1: Try opening with specific window features
+    console.log('Attempting to open new window (method 1)...');
+    let newWindow = window.open(url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes,toolbar=no,menubar=no');
+    
+    if (newWindow && !newWindow.closed) {
+      console.log('Window opened successfully (method 1)');
+      windowOpened = true;
+    } else {
+      console.log('Method 1 failed, trying method 2...');
+      
+      // Method 2: Try opening without features
+      newWindow = window.open(url, '_blank');
+      
+      if (newWindow && !newWindow.closed) {
+        console.log('Window opened successfully (method 2)');
+        windowOpened = true;
+      } else {
+        console.log('Method 2 failed, trying method 3...');
+        
+        // Method 3: Try opening in same window
+        try {
+          window.location.href = url;
+          console.log('Redirected to resume in same window');
+          windowOpened = true;
+        } catch (redirectError) {
+          console.log('Method 3 failed:', redirectError);
+        }
+      }
+    }
+    
+    if (windowOpened) {
+      console.log('Resume opened successfully');
+      
+      // Clean up the blob URL after a delay
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+      
+      return;
+    }
+    
+    // Fallback: download the HTML file
+    console.log('All window opening methods failed, falling back to HTML file download');
     const link = document.createElement('a');
     link.href = url;
     link.download = `resume-${resumeData.personalInfo.name.toLowerCase().replace(/\s+/g, '-')}.html`;
@@ -114,13 +148,13 @@ export async function downloadPDF(resumeData: ResumeData, template: string = 'mo
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
-    console.log('PDF download completed successfully - downloaded HTML file');
+    console.log('HTML file downloaded successfully');
     
-    // Show success message with instructions
-    alert('Resume downloaded successfully! To view and print:\n\n1. Go to your Downloads folder\n2. Find the HTML file (resume-[name].html)\n3. Right-click and "Open with" your web browser\n4. Use Ctrl+P (or Cmd+P) to print as PDF');
+    // Show instructions
+    alert('Resume downloaded successfully! To convert to PDF:\n\n1. Go to your Downloads folder\n2. Find the HTML file (resume-[name].html)\n3. Right-click and "Open with" your web browser\n4. Use Ctrl+P (or Cmd+P) to print as PDF');
     
   } catch (error) {
-    console.error('PDF download error:', error);
+    console.error('Resume generation error:', error);
     throw error;
   }
 }
@@ -128,34 +162,74 @@ export async function downloadPDF(resumeData: ResumeData, template: string = 'mo
 export function validateResumeData(data: ResumeData): { isValid: boolean; errors: string[] } {
   const errors: string[] = [];
   
-  // Check required personal info
-  if (!data.personalInfo.name?.trim()) {
-    errors.push('Name is required');
-  }
-  if (!data.personalInfo.title?.trim()) {
-    errors.push('Professional title is required');
-  }
-  if (!data.personalInfo.email?.trim()) {
-    errors.push('Email is required');
-  }
-  if (!data.personalInfo.phone?.trim()) {
-    errors.push('Phone number is required');
+  // Validate personal info
+  if (!data.personalInfo) {
+    errors.push('Personal information is required');
+  } else {
+    if (!data.personalInfo.name || data.personalInfo.name.trim() === '') {
+      errors.push('Name is required');
+    }
+    if (!data.personalInfo.email || data.personalInfo.email.trim() === '') {
+      errors.push('Email is required');
+    }
+    if (!data.personalInfo.phone || data.personalInfo.phone.trim() === '') {
+      errors.push('Phone number is required');
+    }
+    if (!data.personalInfo.title || data.personalInfo.title.trim() === '') {
+      errors.push('Professional title is required');
+    }
   }
   
-  // Check if at least one section has content
-  const hasContent = 
-    (data.summary && data.summary.trim()) ||
-    (data.experience && data.experience.length > 0) ||
-    (data.education && data.education.length > 0) ||
-    (data.skills && data.skills.length > 0);
-    
-  if (!hasContent) {
-    errors.push('At least one section (summary, experience, education, or skills) must have content');
+  // Validate summary
+  if (!data.summary || data.summary.trim() === '') {
+    errors.push('Professional summary is required');
+  }
+  
+  // Validate experience
+  if (!data.experience || data.experience.length === 0) {
+    errors.push('At least one work experience is required');
+  } else {
+    data.experience.forEach((exp, index) => {
+      if (!exp.company || exp.company.trim() === '') {
+        errors.push(`Company name is required for experience ${index + 1}`);
+      }
+      if (!exp.position || exp.position.trim() === '') {
+        errors.push(`Position is required for experience ${index + 1}`);
+      }
+      if (!exp.startDate || exp.startDate.trim() === '') {
+        errors.push(`Start date is required for experience ${index + 1}`);
+      }
+      if (!exp.description || exp.description.trim() === '') {
+        errors.push(`Description is required for experience ${index + 1}`);
+      }
+    });
+  }
+  
+  // Validate education
+  if (!data.education || data.education.length === 0) {
+    errors.push('At least one education entry is required');
+  } else {
+    data.education.forEach((edu, index) => {
+      if (!edu.school || edu.school.trim() === '') {
+        errors.push(`School name is required for education ${index + 1}`);
+      }
+      if (!edu.degree || edu.degree.trim() === '') {
+        errors.push(`Degree is required for education ${index + 1}`);
+      }
+      if (!edu.graduationYear || edu.graduationYear.trim() === '') {
+        errors.push(`Graduation year is required for education ${index + 1}`);
+      }
+    });
+  }
+  
+  // Validate skills
+  if (!data.skills || data.skills.length === 0) {
+    errors.push('At least one skill is required');
   }
   
   return {
     isValid: errors.length === 0,
-    errors,
+    errors
   };
 }
 
@@ -197,5 +271,6 @@ export function getResumePreviewData(): ResumeData {
       },
     ],
     skills: ['JavaScript', 'React', 'Node.js', 'Python', 'PostgreSQL', 'AWS', 'Docker', 'Git'],
+    languages: ['English (Native)', 'Spanish (Fluent)', 'French (Intermediate)'],
   };
 } 

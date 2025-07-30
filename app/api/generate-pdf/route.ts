@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Return the HTML as a response without forcing download
+    // Return the HTML as a response for browser-based PDF conversion
     try {
       const response = new NextResponse(htmlBuffer, {
         status: 200,
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         },
       });
       
-      console.log('Response created successfully');
+      console.log('HTML response created successfully');
       return response;
     } catch (responseError) {
       console.error('Error creating response:', responseError);
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Unexpected error in PDF generation:', error);
+    console.error('Unexpected error in HTML generation:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
