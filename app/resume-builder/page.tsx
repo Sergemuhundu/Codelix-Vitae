@@ -20,7 +20,9 @@ import {
   Plus,
   Trash2,
   ChevronRight,
-  Eye
+  Eye,
+  Printer,
+  ChevronDown
 } from 'lucide-react';
 import { AVAILABLE_TEMPLATES } from '@/lib/templates';
 import { ResumeData, PersonalInfo, Experience, Education } from '@/types/resume';
@@ -29,6 +31,12 @@ import { SkillsInput } from '@/components/builder/skills-input';
 import { PhotoUpload } from '@/components/builder/photo-upload';
 import { ResumePreview } from '@/components/builder/resume-preview';
 import { StepProgress } from '@/components/builder/step-progress';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 type Step = 'personal' | 'experience' | 'education' | 'skills' | 'languages';
 
@@ -211,6 +219,66 @@ export default function ResumeBuilderPage() {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    setLoading(true);
+    setErrors([]);
+    setSuccess(false);
+
+    try {
+      // Validate the resume data first
+      const validation = validateResumeData(resumeData);
+      if (!validation.isValid) {
+        setErrors(validation.errors);
+        setLoading(false);
+        return;
+      }
+
+      // Use the new downloadPDF function
+      await downloadPDF(resumeData, selectedTemplate);
+      setSuccess(true);
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : 'Failed to download resume']);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrintResume = async () => {
+    setLoading(true);
+    setErrors([]);
+    setSuccess(false);
+
+    try {
+      // Validate the resume data first
+      const validation = validateResumeData(resumeData);
+      if (!validation.isValid) {
+        setErrors(validation.errors);
+        setLoading(false);
+        return;
+      }
+
+      // Generate HTML and open in new window for printing
+      const { generateHTML } = await import('@/lib/html-generator');
+      const html = generateHTML(resumeData, selectedTemplate);
+      
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      
+      const newWindow = window.open(url, '_blank');
+      if (newWindow) {
+        newWindow.onload = () => {
+          newWindow.print();
+        };
+      }
+      
+      setSuccess(true);
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : 'Failed to print resume']);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBackToTemplates = () => {
     router.push('/dashboard/builder');
   };
@@ -250,18 +318,34 @@ export default function ResumeBuilderPage() {
             <div className="text-sm text-gray-600">
               Template: <span className="font-medium">{currentTemplateData?.name}</span>
             </div>
-            <Button 
-              onClick={handleGeneratePDF} 
-              disabled={loading}
-              className="flex items-center gap-2"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              Generate Resume
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  disabled={loading}
+                  className="flex items-center gap-2"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      Export Resume
+                      <ChevronDown className="h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleDownloadPDF}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handlePrintResume}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -287,7 +371,7 @@ export default function ResumeBuilderPage() {
           <Alert>
             <CheckCircle className="h-4 w-4" />
             <AlertDescription>
-              Resume generated successfully! A new window should open with your resume. Use the print button or Ctrl+P (Cmd+P on Mac) to save as PDF.
+              Resume exported successfully! Check your downloads or print dialog.
             </AlertDescription>
           </Alert>
         </div>

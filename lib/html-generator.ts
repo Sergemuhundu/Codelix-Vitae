@@ -375,6 +375,24 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
                 box-sizing: border-box;
               }
               
+              @page {
+                size: A4;
+                margin: 0;
+              }
+              
+              @media print {
+                body {
+                  margin: 0;
+                  padding: 0;
+                }
+                .page {
+                  width: 100%;
+                  height: 100%;
+                  margin: 0;
+                  padding: 0;
+                }
+              }
+              
               body { 
                 font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
                 margin: 0; 
@@ -383,15 +401,18 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
                 color: #1f2937;
                 line-height: 1.6;
                 font-size: 14px;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
               }
               
               .page {
-                max-width: 210mm;
-                margin: 0 auto;
+                width: 100%;
+                height: 100vh;
                 background: white;
-                min-height: 297mm;
                 display: flex;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                margin: 0;
+                padding: 0;
               }
               
               .sidebar {

@@ -2,159 +2,60 @@ import { ResumeData } from '@/types/resume';
 
 export async function downloadPDF(resumeData: ResumeData, template: string = 'modern'): Promise<void> {
   try {
-    console.log('Starting HTML generation for template:', template);
+    console.log('Starting PDF generation for template:', template);
     
-    // Validate data before sending
-    if (!resumeData || typeof resumeData !== 'object') {
-      throw new Error('Invalid resume data');
-    }
-    
-    if (!resumeData.personalInfo || typeof resumeData.personalInfo !== 'object') {
-      throw new Error('Invalid personal info data');
-    }
-    
-    if (!template || typeof template !== 'string') {
-      throw new Error('Invalid template');
-    }
-    
-    // Add retry logic
-    let response;
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries) {
-      try {
-        console.log(`Attempt ${retryCount + 1} of ${maxRetries}`);
-        
-        response = await fetch('/api/generate-pdf', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            resumeData,
-            template,
-          }),
-        });
-        
-        if (response.ok) {
-          break; // Success, exit retry loop
-        }
-        
-        console.log(`Attempt ${retryCount + 1} failed with status:`, response.status);
-        retryCount++;
-        
-        if (retryCount < maxRetries) {
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-        }
-      } catch (fetchError) {
-        console.error(`Fetch error on attempt ${retryCount + 1}:`, fetchError);
-        retryCount++;
-        
-        if (retryCount < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-        } else {
-          throw new Error(`Failed to connect to server after ${maxRetries} attempts`);
-        }
-      }
-    }
-    
+    const response = await fetch('/api/generate-pdf', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        resumeData,
+        template,
+      }),
+    });
+
     if (!response || !response.ok) {
       const errorText = await response?.text() || 'No response from server';
       console.error('Server error response:', errorText);
-      
-      let errorMessage = 'Failed to generate resume';
+      let errorMessage = 'Failed to generate PDF';
       try {
         const errorData = JSON.parse(errorText);
         errorMessage = errorData.error || errorMessage;
       } catch (e) {
         errorMessage = errorText || errorMessage;
       }
-      
       throw new Error(errorMessage);
     }
 
-    // Get the HTML content
-    const htmlContent = await response.text();
+    // Get the PDF blob
+    const pdfBlob = await response.blob();
     
-    if (!htmlContent || htmlContent.length === 0) {
-      throw new Error('Generated HTML is empty');
+    if (!pdfBlob || pdfBlob.size === 0) {
+      throw new Error('Generated PDF is empty');
     }
-    
-    console.log('HTML content received, length:', htmlContent.length);
-    
-    // Create a blob URL for the HTML content
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    
-    console.log('Blob URL created:', url);
-    
-    // Try multiple methods to open the window
-    let windowOpened = false;
-    
-    // Method 1: Try opening with specific window features
-    console.log('Attempting to open new window (method 1)...');
-    let newWindow = window.open(url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes,toolbar=no,menubar=no');
-    
-    if (newWindow && !newWindow.closed) {
-      console.log('Window opened successfully (method 1)');
-      windowOpened = true;
-    } else {
-      console.log('Method 1 failed, trying method 2...');
-      
-      // Method 2: Try opening without features
-      newWindow = window.open(url, '_blank');
-      
-      if (newWindow && !newWindow.closed) {
-        console.log('Window opened successfully (method 2)');
-        windowOpened = true;
-      } else {
-        console.log('Method 2 failed, trying method 3...');
-        
-        // Method 3: Try opening in same window
-        try {
-          window.location.href = url;
-          console.log('Redirected to resume in same window');
-          windowOpened = true;
-        } catch (redirectError) {
-          console.log('Method 3 failed:', redirectError);
-        }
-      }
-    }
-    
-    if (windowOpened) {
-      console.log('Resume opened successfully');
-      
-      // Clean up the blob URL after a delay
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 1000);
-      
-      return;
-    }
-    
-    // Fallback: download the HTML file
-    console.log('All window opening methods failed, falling back to HTML file download');
+
+    console.log('PDF blob received, size:', pdfBlob.size);
+
+    // Create download link for PDF
+    const url = URL.createObjectURL(pdfBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `resume-${resumeData.personalInfo.name.toLowerCase().replace(/\s+/g, '-')}.html`;
+    link.download = `resume-${resumeData.personalInfo.name.toLowerCase().replace(/\s+/g, '-')}.pdf`;
     
-    // Trigger download
     document.body.appendChild(link);
     link.click();
-    
-    // Cleanup
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
     
-    console.log('HTML file downloaded successfully');
-    
-    // Show instructions
-    alert('Resume downloaded successfully! To convert to PDF:\n\n1. Go to your Downloads folder\n2. Find the HTML file (resume-[name].html)\n3. Right-click and "Open with" your web browser\n4. Use Ctrl+P (or Cmd+P) to print as PDF');
-    
+    // Clean up
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 1000);
+
+    console.log('PDF downloaded successfully');
+
   } catch (error) {
-    console.error('Resume generation error:', error);
+    console.error('PDF generation error:', error);
     throw error;
   }
 }
