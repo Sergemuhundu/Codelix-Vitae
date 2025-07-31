@@ -39,7 +39,7 @@ export const AVAILABLE_TEMPLATES: ResumeTemplate[] = [
     isPremium: false,
     preview: '/templates/simple_professional_cv_resume.png',
     features: ['Professional', 'Simple', 'Clean'],
-    hasPhoto: false
+    hasPhoto: true
   },
   {
     id: 'white-simple-sales',
