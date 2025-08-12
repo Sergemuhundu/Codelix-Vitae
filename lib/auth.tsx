@@ -2,13 +2,14 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import type { User } from '@supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signInWithGoogle: () => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any } | { success: boolean; message: string }>;
   resetPassword: (email: string) => Promise<{ error: any }>;
   updatePassword: (password: string) => Promise<{ error: any }>;
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signOut: async () => {},
   signIn: async () => ({ error: null }),
+  signInWithGoogle: async () => ({ error: null }),
   signUp: async () => ({ error: null }),
   resetPassword: async () => ({ error: null }),
   updatePassword: async () => ({ error: null }),
@@ -35,7 +37,7 @@ export const useAuth = () => {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Create supabase client with fallback values
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
@@ -58,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getUser();
 
     let subscription: any;
-    
+
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       const { data } = supabase.auth.onAuthStateChange(
         (event, session) => {
@@ -76,10 +78,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       return { error: { message: 'Supabase configuration missing' } };
     }
-    
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
+    });
+    return { error };
+  };
+
+  const signInWithGoogle = async () => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return { error: { message: 'Supabase configuration missing' } };
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
     return { error };
   };
@@ -88,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       return { error: { message: 'Supabase configuration missing' } };
     }
-    
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -99,12 +115,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-    
+
     // If signup is successful but email confirmation is required
     if (data.user && !data.session) {
       return { success: true, message: 'Please check your email to confirm your account.' };
     }
-    
+
     return { error };
   };
 
@@ -118,11 +134,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       return { error: { message: 'Supabase configuration missing' } };
     }
-    
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/reset-password`,
     });
-    
+
     return { error };
   };
 
@@ -130,11 +146,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       return { error: { message: 'Supabase configuration missing' } };
     }
-    
+
     const { error } = await supabase.auth.updateUser({
       password: password,
     });
-    
+
     return { error };
   };
 
@@ -143,6 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signOut,
     signIn,
+    signInWithGoogle,
     signUp,
     resetPassword,
     updatePassword,

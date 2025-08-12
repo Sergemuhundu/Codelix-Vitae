@@ -10,15 +10,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileText, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { GoogleSignInButton } from '@/components/auth/google-signin-button';
 
 export default function SignupPage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  const { signUp } = useAuth();
+
+  const { signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,7 +29,7 @@ export default function SignupPage() {
     setError('');
 
     const result = await signUp(email, password, fullName);
-    
+
     if ('error' in result) {
       if (result.error) {
         setError(result.error.message);
@@ -37,6 +39,19 @@ export default function SignupPage() {
       // Redirect to email verification page
       router.push('/auth/verify-email');
     }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setError('');
+
+    const { error } = await signInWithGoogle();
+
+    if (error) {
+      setError(error.message);
+      setGoogleLoading(false);
+    }
+    // Don't redirect here - let the auth context handle it when user state changes
   };
 
   return (
@@ -86,7 +101,7 @@ export default function SignupPage() {
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -111,6 +126,22 @@ export default function SignupPage() {
                 Create Account
               </Button>
             </form>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <GoogleSignInButton
+              onClick={handleGoogleSignIn}
+              loading={googleLoading}
+            />
 
             <div className="mt-6 text-center text-sm">
               <span className="text-muted-foreground">Already have an account? </span>
