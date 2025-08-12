@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -155,12 +156,12 @@ export default function TemplatesPage() {
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <FileText className="h-4 w-4 text-primary-foreground" />
             </div>
-                            <span className="text-xl font-bold">CVAdapter</span>
-          </div>
+            <span className="text-xl font-bold">CVAdapter</span>
+          </Link>
           <div className="flex items-center gap-4">
             <Button 
               variant="outline" 
