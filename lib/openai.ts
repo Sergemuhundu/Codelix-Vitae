@@ -396,6 +396,79 @@ class OpenAIService {
     }
   }
 
+  async getDescriptionSuggestions(
+    position: string,
+    company: string,
+    startDate: string,
+    endDate: string,
+    currentDescription?: string,
+    skills?: string[],
+    jobTitle?: string
+  ): Promise<AISuggestion[]> {
+    try {
+      const prompt = `
+        Generate 3 different bullet-point descriptions for this work experience:
+
+        Position: ${position}
+        Company: ${company}
+        Duration: ${startDate} - ${endDate}
+        Skills: ${skills?.join(', ') || 'Not specified'}
+        Job Title: ${jobTitle || 'Not specified'}
+        ${currentDescription ? `Current Description: ${currentDescription}` : ''}
+
+        Create bullet-point descriptions that:
+        1. Use strong action verbs at the beginning of each bullet
+        2. Prioritize quantifiable achievements (e.g., "Increased sales by 25%", "Reduced costs by $50K", "Managed team of 10 employees")
+        3. Include specific metrics, percentages, and numbers when possible
+        4. Are relevant to the position and industry
+        5. Highlight leadership, problem-solving, and results
+        6. Use bullet points (•) format
+        7. Are concise but impactful (3-5 bullets per suggestion)
+
+        Examples of good bullets:
+        • Increased quarterly sales by 35% through strategic client relationship management
+        • Led a team of 8 developers to deliver 3 major software releases on schedule
+        • Reduced operational costs by $75,000 through process optimization initiatives
+        • Managed $2M budget and achieved 95% client satisfaction rate
+
+        Return as a JSON array of AISuggestion objects with type 'experience'.
+      `;
+
+      const response = await fetch(`${this.baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert resume writer specializing in work experience descriptions and bullet points.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 1200,
+          temperature: 0.3,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get description suggestions');
+      }
+
+      const data = await response.json();
+      return JSON.parse(data.choices[0].message.content);
+    } catch (error) {
+      console.error('Error getting description suggestions:', error);
+      throw new Error('Failed to get description suggestions. Please try again.');
+    }
+  }
+
   async getKeywordSuggestions(
     jobTitle: string,
     jobDescription?: string

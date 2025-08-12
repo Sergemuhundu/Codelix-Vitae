@@ -21,7 +21,7 @@ export interface Experience {
   position: string;
   startDate: string;
   endDate?: string;
-  description: string;
+  description: string[]; // Array of bullet points
   achievements?: string[];
 }
 

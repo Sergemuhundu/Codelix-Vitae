@@ -17,10 +17,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                       process.env.NEXT_PUBLIC_SUPABASE_URL !== 'your_supabase_project_url_here';
 
   useEffect(() => {
+    // Only redirect if user is not authenticated and we're not on the home page
     if (!loading && !user && isConfigured) {
-      router.push('/auth/login');
+      const pathname = window.location.pathname;
+      // Allow home page and auth pages to be accessed without authentication
+      if (pathname !== '/' && !pathname.startsWith('/auth/') && !pathname.startsWith('/templates')) {
+        router.push('/auth/login');
+      }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, isConfigured]);
 
   // Show configuration warning if environment variables are not set
   if (!isConfigured) {
@@ -79,7 +84,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) {
+  // Don't block rendering for unauthenticated users on public pages
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isPublicPage = pathname === '/' || pathname.startsWith('/auth/') || pathname.startsWith('/templates');
+  
+  if (!user && !isPublicPage) {
     return null;
   }
 

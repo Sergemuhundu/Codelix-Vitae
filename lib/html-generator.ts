@@ -79,6 +79,8 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
             .position, .degree { font-weight: 500; color: #374151; margin-bottom: 5px; }
             .date { color: #6b7280; font-size: 0.9em; }
             .description { line-height: 1.5; color: #374151; }
+            .description ul { list-style: none; margin: 0; padding: 0; }
+            .description li { display: block; margin-bottom: 4px; }
             .skills { display: flex; flex-wrap: wrap; gap: 8px; }
             .skill { background: #f3f4f6; padding: 4px 12px; border-radius: 15px; font-size: 0.9em; color: #374151; }
           </style>
@@ -102,6 +104,8 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
             .position, .degree { color: #6b7280; font-size: 1em; margin-bottom: 5px; }
             .date { color: #9ca3af; font-size: 0.9em; }
             .description { line-height: 1.6; color: #374151; margin-top: 8px; }
+            .description ul { list-style: none; margin: 0; padding: 0; }
+            .description li { display: block; margin-bottom: 4px; }
             .skills { display: flex; flex-wrap: wrap; gap: 10px; }
             .skill { color: #374151; font-size: 0.95em; }
             .skill:not(:last-child)::after { content: "•"; margin-left: 10px; color: #9ca3af; }
@@ -126,6 +130,8 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
             .position, .degree { font-weight: 500; color: #374151; margin-bottom: 6px; }
             .date { color: #6b7280; font-weight: 500; }
             .description { line-height: 1.5; color: #374151; }
+            .description ul { list-style: none; margin: 0; padding: 0; }
+            .description li { display: block; margin-bottom: 4px; }
             .skills { display: flex; flex-wrap: wrap; gap: 8px; }
             .skill { background: #dbeafe; color: #1e40af; padding: 6px 14px; border-radius: 20px; font-size: 0.9em; font-weight: 500; }
           </style>
@@ -149,6 +155,8 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
             .position, .degree { font-weight: 500; color: #374151; margin-bottom: 6px; }
             .date { color: #6b7280; font-weight: 500; }
             .description { line-height: 1.6; color: #374151; }
+            .description ul { list-style: none; margin: 0; padding: 0; }
+            .description li { display: block; margin-bottom: 4px; }
             .skills { display: flex; flex-wrap: wrap; gap: 8px; }
             .skill { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 14px; border-radius: 20px; font-size: 0.9em; font-weight: 500; }
           </style>
@@ -172,6 +180,8 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
             .position, .degree { font-weight: 500; color: #374151; margin-bottom: 5px; }
             .date { color: #6b7280; font-size: 0.9em; }
             .description { line-height: 1.5; color: #374151; }
+            .description ul { list-style: none; margin: 0; padding: 0; }
+            .description li { display: block; margin-bottom: 4px; }
             .skills { display: flex; flex-wrap: wrap; gap: 8px; }
             .skill { background: #f3f4f6; padding: 4px 12px; border-radius: 15px; font-size: 0.9em; color: #374151; }
           </style>
@@ -449,6 +459,7 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
               }
               
               .description li {
+                display: block;
                 margin-bottom: 4px;
               }
               
@@ -570,7 +581,7 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
                         <div class="company-date">${exp.company} | ${exp.startDate} - ${exp.endDate || 'Present'}</div>
                         <div class="description">
                           <ul>
-                            ${exp.description.split('.').filter(sentence => sentence.trim()).map(sentence => `<li>- ${sentence.trim()}</li>`).join('')}
+                            ${exp.description.map(bullet => `<li>- ${bullet.trim()}</li>`).join('')}
                           </ul>
                         </div>
                       </div>
@@ -860,9 +871,10 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
                 list-style: none;
               }
               
-              .description li {
-                margin-bottom: 4px;
-              }
+                          .description li {
+              display: block;
+              margin-bottom: 4px;
+            }
               
               .description li:last-child {
                 margin-bottom: 0;
@@ -1006,7 +1018,7 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
                           <div class="position">${exp.position}</div>
                           <div class="description">
                             <ul>
-                              ${exp.description.split('.').filter(sentence => sentence.trim()).map(sentence => `<li>• ${sentence.trim()}</li>`).join('')}
+                              ${exp.description.map(bullet => `<li>• ${bullet.trim()}</li>`).join('')}
                             </ul>
                           </div>
                         </div>

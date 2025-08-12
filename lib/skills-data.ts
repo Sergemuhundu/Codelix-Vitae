@@ -334,13 +334,15 @@ export function searchSkills(query: string): string[] {
   );
 }
 
-// Get popular skills (most commonly used)
+// Get popular skills (most commonly used across industries)
 export function getPopularSkills(): string[] {
   return [
     'Communication Skills', 'Leadership', 'Problem Solving', 'Teamwork', 'Time Management',
     'Microsoft Office', 'Excel', 'Word', 'PowerPoint', 'Customer Service', 'Project Management',
     'Data Analysis', 'Research', 'Writing', 'Editing', 'Presentation Skills', 'Negotiation',
     'Sales', 'Marketing', 'Social Media', 'Digital Marketing', 'Content Creation', 'Graphic Design',
-    'Web Design', 'JavaScript', 'Python', 'SQL', 'HTML', 'CSS', 'Git', 'Agile', 'Scrum'
+    'Critical Thinking', 'Adaptability', 'Creativity', 'Attention to Detail', 'Organization',
+    'Planning', 'Coordination', 'Training', 'Mentoring', 'Quality Assurance', 'Process Improvement',
+    'Budget Management', 'Strategic Planning', 'Client Relations', 'Vendor Management', 'Compliance'
   ];
 } 

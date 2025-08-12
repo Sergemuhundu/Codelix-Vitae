@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ export default function SignupPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp, signInWithGoogle, user } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,20 +54,39 @@ export default function SignupPage() {
     // Don't redirect here - let the auth context handle it when user state changes
   };
 
+  // Handle redirect after successful signup/signin
+  useEffect(() => {
+    if (user) {
+      // Check if there's a pending action that requires authentication
+      const pendingAction = sessionStorage.getItem('pending_action');
+      const redirectAfterLogin = sessionStorage.getItem('redirect_after_login');
+      
+      if (pendingAction && redirectAfterLogin) {
+        // Clear the pending action and redirect back to where they were
+        sessionStorage.removeItem('pending_action');
+        sessionStorage.removeItem('redirect_after_login');
+        router.push(redirectAfterLogin);
+      } else {
+        // Default redirect to home page
+        router.push('/');
+      }
+    }
+  }, [user, router]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-emerald-50">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-              <FileText className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <h1 className="text-2xl font-bold">CVAdapter</h1>
-          </div>
-          <p className="text-muted-foreground">
-            AI-Powered Resume Builder
-          </p>
-        </div>
+                 <div className="text-center mb-8">
+           <Link href="/" className="inline-flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity">
+             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+               <FileText className="h-5 w-5 text-primary-foreground" />
+             </div>
+             <h1 className="text-2xl font-bold">CVAdapter</h1>
+           </Link>
+           <p className="text-muted-foreground">
+             AI-Powered Resume Builder
+           </p>
+         </div>
 
         <Card>
           <CardHeader>
@@ -143,12 +162,18 @@ export default function SignupPage() {
               loading={googleLoading}
             />
 
-            <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">Already have an account? </span>
-              <Link href="/auth/login" className="font-medium text-primary hover:underline">
-                Sign in
-              </Link>
-            </div>
+                         <div className="mt-6 text-center text-sm">
+               <span className="text-muted-foreground">Already have an account? </span>
+               <Link href="/auth/login" className="font-medium text-primary hover:underline">
+                 Sign in
+               </Link>
+             </div>
+             
+             <div className="mt-4 text-center">
+               <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                 ← Back to Home
+               </Link>
+             </div>
           </CardContent>
         </Card>
 

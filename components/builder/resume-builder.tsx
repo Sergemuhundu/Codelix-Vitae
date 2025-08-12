@@ -87,7 +87,7 @@ export function ResumeBuilder({ initialTemplate = 'modern' }: { initialTemplate?
       position: '',
       startDate: '',
       endDate: '',
-      description: '',
+      description: [''],
     };
     setResumeData(prev => ({
       ...prev,
@@ -95,7 +95,7 @@ export function ResumeBuilder({ initialTemplate = 'modern' }: { initialTemplate?
     }));
   };
 
-  const updateExperience = (index: number, field: keyof Experience, value: string) => {
+  const updateExperience = (index: number, field: keyof Experience, value: string | string[]) => {
     setResumeData(prev => ({
       ...prev,
       experience: prev.experience?.map((exp, i) => 
@@ -457,9 +457,9 @@ export function ResumeBuilder({ initialTemplate = 'modern' }: { initialTemplate?
                           <div className="space-y-2">
                             <Label>Description</Label>
                             <Textarea
-                              value={exp.description}
-                              onChange={(e) => updateExperience(index, 'description', e.target.value)}
-                              placeholder="Describe your responsibilities and achievements..."
+                              value={Array.isArray(exp.description) ? exp.description.join('\n') : exp.description}
+                              onChange={(e) => updateExperience(index, 'description', e.target.value.split('\n').filter(line => line.trim() !== ''))}
+                              placeholder="Describe your responsibilities and achievements... (one per line)"
                               rows={3}
                             />
                           </div>

@@ -33,6 +33,18 @@ export async function POST(request: NextRequest) {
         );
         break;
       
+      case 'descriptions':
+        result = await openAIService.getDescriptionSuggestions(
+          data.position,
+          data.company,
+          data.startDate,
+          data.endDate,
+          data.currentDescription,
+          data.skills,
+          data.jobTitle
+        );
+        break;
+      
       case 'keywords':
         result = await openAIService.getKeywordSuggestions(
           data.jobTitle,
@@ -47,6 +59,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
+    console.log('AI suggestions result:', JSON.stringify(result, null, 2));
     return NextResponse.json(result);
   } catch (error) {
     console.error('AI suggestions error:', error);

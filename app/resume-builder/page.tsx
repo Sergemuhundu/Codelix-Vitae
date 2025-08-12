@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthState } from '@/hooks/use-auth-state';
-import { LocalDataBanner } from '@/components/builder/local-data-banner';
+
 import { localStorageUtils } from '@/lib/local-storage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   ChevronLeft, 
   Home, 
@@ -25,7 +26,8 @@ import {
   ChevronRight,
   Eye,
   Printer,
-  ChevronDown
+  ChevronDown,
+  Sparkles
 } from 'lucide-react';
 import { AVAILABLE_TEMPLATES } from '@/lib/templates';
 import { ResumeData, PersonalInfo, Experience, Education } from '@/types/resume';
@@ -66,9 +68,16 @@ export default function ResumeBuilderPage() {
   const [selectedTemplate, setSelectedTemplate] = useState('modern');
   const [currentStep, setCurrentStep] = useState<Step>('personal');
   const [loading, setLoading] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summarySuccess, setSummarySuccess] = useState(false);
+  const [descriptionLoading, setDescriptionLoading] = useState<number | null>(null);
+  const [descriptionSuccess, setDescriptionSuccess] = useState<number | null>(null);
+  const [bulletLoading, setBulletLoading] = useState<{expIndex: number, bulletIndex: number} | null>(null);
+  const [bulletSuccess, setBulletSuccess] = useState<{expIndex: number, bulletIndex: number} | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
-  const [showLocalDataBanner, setShowLocalDataBanner] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
   
   // Authentication and local storage management
   const {
@@ -79,6 +88,7 @@ export default function ResumeBuilderPage() {
     saveLocalData,
     autoSaveLocalData,
     clearLocalData,
+    clearLocalDataAfterSave,
     hasLocalData,
   } = useAuthState();
   
@@ -105,16 +115,16 @@ export default function ResumeBuilderPage() {
       setSelectedTemplate(templateParam);
     }
 
-    // Load local data if available and user is not authenticated
-    if (!authLoading && !isAuthenticated) {
+    // Load local data if available (regardless of authentication status)
+    // This ensures local data is preserved when user logs in
+    if (!authLoading) {
       const localData = loadLocalData();
       if (localData) {
         setResumeData(localData.resumeData);
         setSelectedTemplate(localData.selectedTemplate);
-        setShowLocalDataBanner(true);
       }
     }
-  }, [searchParams, authLoading, isAuthenticated, loadLocalData]);
+  }, [searchParams, authLoading, loadLocalData]);
 
   const currentTemplateData = AVAILABLE_TEMPLATES.find(t => t.id === selectedTemplate);
 
@@ -133,6 +143,10 @@ export default function ResumeBuilderPage() {
   }, [currentStepIndex, steps]);
   
   const updatePersonalInfo = useCallback((field: keyof PersonalInfo, value: string) => {
+    // Clear errors when user starts typing
+    if (errors.length > 0) {
+      setErrors([]);
+    }
     setResumeData(prev => ({
       ...prev,
       personalInfo: {
@@ -140,14 +154,18 @@ export default function ResumeBuilderPage() {
         [field]: value,
       },
     }));
-  }, []);
+  }, [errors.length]);
 
   const updateSummary = useCallback((value: string) => {
+    // Clear errors when user starts typing
+    if (errors.length > 0) {
+      setErrors([]);
+    }
     setResumeData(prev => ({
       ...prev,
       summary: value,
     }));
-  }, []);
+  }, [errors.length]);
 
   const updatePhoto = useCallback((photo: string | null, adjustments?: {
     scale: number;
@@ -166,6 +184,10 @@ export default function ResumeBuilderPage() {
   }, []);
 
   const addExperience = useCallback(() => {
+    // Clear errors when user adds experience
+    if (errors.length > 0) {
+      setErrors([]);
+    }
     setResumeData(prev => ({
       ...prev,
       experience: [
@@ -175,17 +197,74 @@ export default function ResumeBuilderPage() {
           position: '',
           startDate: '',
           endDate: '',
-          description: '',
+          description: [''],
         },
       ],
     }));
-  }, []);
+  }, [errors.length]);
 
   const updateExperience = useCallback((index: number, field: keyof Experience, value: string) => {
+    // Clear errors when user starts typing
+    if (errors.length > 0) {
+      setErrors([]);
+    }
     setResumeData(prev => ({
       ...prev,
       experience: (prev.experience || []).map((exp, i) =>
         i === index ? { ...exp, [field]: value } : exp
+      ),
+    }));
+  }, [errors.length]);
+
+  const updateExperienceDescription = useCallback((index: number, description: string[]) => {
+    // Clear errors when user starts typing
+    if (errors.length > 0) {
+      setErrors([]);
+    }
+    setResumeData(prev => ({
+      ...prev,
+      experience: (prev.experience || []).map((exp, i) =>
+        i === index ? { ...exp, description } : exp
+      ),
+    }));
+  }, [errors.length]);
+
+  const updateBulletPoint = useCallback((expIndex: number, bulletIndex: number, value: string) => {
+    // Clear errors when user starts typing
+    if (errors.length > 0) {
+      setErrors([]);
+    }
+    setResumeData(prev => ({
+      ...prev,
+      experience: (prev.experience || []).map((exp, i) =>
+        i === expIndex ? {
+          ...exp,
+          description: exp.description.map((bullet, j) => j === bulletIndex ? value : bullet)
+        } : exp
+      ),
+    }));
+  }, [errors.length]);
+
+  const addBulletPoint = useCallback((expIndex: number) => {
+    setResumeData(prev => ({
+      ...prev,
+      experience: (prev.experience || []).map((exp, i) =>
+        i === expIndex ? {
+          ...exp,
+          description: [...exp.description, '']
+        } : exp
+      ),
+    }));
+  }, []);
+
+  const removeBulletPoint = useCallback((expIndex: number, bulletIndex: number) => {
+    setResumeData(prev => ({
+      ...prev,
+      experience: (prev.experience || []).map((exp, i) =>
+        i === expIndex ? {
+          ...exp,
+          description: exp.description.filter((_, j) => j !== bulletIndex)
+        } : exp
       ),
     }));
   }, []);
@@ -198,6 +277,10 @@ export default function ResumeBuilderPage() {
   }, []);
 
   const addEducation = useCallback(() => {
+    // Clear errors when user adds education
+    if (errors.length > 0) {
+      setErrors([]);
+    }
     setResumeData(prev => ({
       ...prev,
       education: [
@@ -211,16 +294,20 @@ export default function ResumeBuilderPage() {
         },
       ],
     }));
-  }, []);
+  }, [errors.length]);
 
   const updateEducation = useCallback((index: number, field: keyof Education, value: string) => {
+    // Clear errors when user starts typing
+    if (errors.length > 0) {
+      setErrors([]);
+    }
     setResumeData(prev => ({
       ...prev,
       education: (prev.education || []).map((edu, i) =>
         i === index ? { ...edu, [field]: value } : edu
       ),
     }));
-  }, []);
+  }, [errors.length]);
 
   const removeEducation = useCallback((index: number) => {
     setResumeData(prev => ({
@@ -230,25 +317,33 @@ export default function ResumeBuilderPage() {
   }, []);
 
   const updateSkills = useCallback((skills: string[]) => {
+    // Clear errors when user starts typing
+    if (errors.length > 0) {
+      setErrors([]);
+    }
     setResumeData(prev => ({
       ...prev,
       skills,
     }));
-  }, []);
+  }, [errors.length]);
 
   const updateLanguages = useCallback((languages: string[]) => {
+    // Clear errors when user starts typing
+    if (errors.length > 0) {
+      setErrors([]);
+    }
     setResumeData(prev => ({
       ...prev,
       languages,
     }));
-  }, []);
+  }, [errors.length]);
 
-  // Auto-save data when it changes (for non-authenticated users)
+  // Auto-save data when it changes (for non-authenticated users or authenticated users with local data)
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (!authLoading && (!isAuthenticated || hasLocalData())) {
       autoSaveLocalData(resumeData, selectedTemplate);
     }
-  }, [resumeData, selectedTemplate, authLoading, isAuthenticated, autoSaveLocalData]);
+  }, [resumeData, selectedTemplate, authLoading, isAuthenticated, autoSaveLocalData, hasLocalData]);
 
   const handleGeneratePDF = async () => {
     if (!requireAuth('generate PDF', () => {})) {
@@ -357,14 +452,240 @@ export default function ResumeBuilderPage() {
     if (localData) {
       setResumeData(localData.resumeData);
       setSelectedTemplate(localData.selectedTemplate);
-      setShowLocalDataBanner(false);
     }
   };
 
   const handleClearLocalData = () => {
     clearLocalData();
     setResumeData(getResumePreviewData());
-    setShowLocalDataBanner(false);
+  };
+
+  const handleSaveToAccount = async () => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    setLoading(true);
+    setErrors([]);
+
+    try {
+      // Save resume data to authenticated user's account
+      const response = await fetch('/api/resumes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          resumeData,
+          template: selectedTemplate,
+          name: resumeData.personalInfo.name || 'My Resume',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save resume to account');
+      }
+
+      // Clear local data after successful save
+      clearLocalDataAfterSave();
+      setSaveSuccess(true);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : 'Failed to save resume to account']);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    if (!requireAuth('generate summary', () => {})) {
+      return;
+    }
+
+    setSummaryLoading(true);
+    setErrors([]);
+
+    try {
+      // Prepare data for AI summary generation
+      const experienceText = resumeData.experience?.map(exp => 
+        `${exp.position} at ${exp.company} (${exp.startDate} - ${exp.endDate}): ${exp.description}`
+      ).join('. ') || '';
+
+      const skillsText = resumeData.skills?.join(', ') || '';
+      const jobTitle = resumeData.personalInfo.title || 'Professional';
+
+      const response = await fetch('/api/ai-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'summaries',
+          data: {
+            jobTitle,
+            experience: experienceText,
+            skills: skillsText.split(', '),
+            currentSummary: resumeData.summary
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate summary');
+      }
+
+      const suggestions = await response.json();
+      
+      if (suggestions && suggestions.length > 0) {
+        // Use the first suggestion as the new summary
+        updateSummary(suggestions[0].content);
+        setSummarySuccess(true);
+        // Clear success message after 3 seconds
+        setTimeout(() => setSummarySuccess(false), 3000);
+      }
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : 'Failed to generate summary']);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const handleGenerateDescription = async (index: number) => {
+    if (!requireAuth('generate description', () => {})) {
+      return;
+    }
+
+    const exp = resumeData.experience?.[index];
+    if (!exp) return;
+
+    setDescriptionLoading(index);
+    setErrors([]);
+
+    try {
+      const response = await fetch('/api/ai-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'descriptions',
+          data: {
+            position: exp.position,
+            company: exp.company,
+            startDate: exp.startDate,
+            endDate: exp.endDate,
+            currentDescription: exp.description.join('\n'),
+            skills: resumeData.skills || [],
+            jobTitle: resumeData.personalInfo.title || 'Professional'
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate description');
+      }
+
+      const suggestions = await response.json();
+      
+      if (suggestions && suggestions.length > 0 && suggestions[0] && suggestions[0].content) {
+        let bulletPoints: string[];
+        
+        if (Array.isArray(suggestions[0].content)) {
+          // Content is already an array of bullet points
+          bulletPoints = suggestions[0].content.map((bullet: string) => bullet.replace(/^[•\-\*]\s*/, '').trim());
+        } else if (typeof suggestions[0].content === 'string') {
+          // Content is a string that needs to be split
+          bulletPoints = suggestions[0].content.split('\n').filter((line: string) => line.trim()).map((line: string) => line.replace(/^[•\-\*]\s*/, '').trim());
+        } else {
+          console.error('Invalid content format:', suggestions[0].content);
+          throw new Error('Invalid content format from AI service');
+        }
+        
+        updateExperienceDescription(index, bulletPoints);
+        setDescriptionSuccess(index);
+        // Clear success message after 3 seconds
+        setTimeout(() => setDescriptionSuccess(null), 3000);
+      } else {
+        console.error('Invalid suggestions response:', suggestions);
+        throw new Error('Invalid response format from AI service');
+      }
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : 'Failed to generate description']);
+    } finally {
+      setDescriptionLoading(null);
+    }
+  };
+
+  const handleGenerateBulletPoint = async (expIndex: number, bulletIndex: number) => {
+    if (!requireAuth('generate bullet point', () => {})) {
+      return;
+    }
+
+    const exp = resumeData.experience?.[expIndex];
+    if (!exp) return;
+
+    setBulletLoading({ expIndex, bulletIndex });
+    setErrors([]);
+
+    try {
+      const response = await fetch('/api/ai-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'descriptions',
+          data: {
+            position: exp.position,
+            company: exp.company,
+            startDate: exp.startDate,
+            endDate: exp.endDate,
+            currentDescription: exp.description.join('\n'),
+            skills: resumeData.skills || [],
+            jobTitle: resumeData.personalInfo.title || 'Professional'
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate bullet point');
+      }
+
+      const suggestions = await response.json();
+      
+      if (suggestions && suggestions.length > 0 && suggestions[0] && suggestions[0].content) {
+        let bulletPoints: string[];
+        
+        if (Array.isArray(suggestions[0].content)) {
+          // Content is already an array of bullet points
+          bulletPoints = suggestions[0].content.map((bullet: string) => bullet.replace(/^[•\-\*]\s*/, '').trim());
+        } else if (typeof suggestions[0].content === 'string') {
+          // Content is a string that needs to be split
+          bulletPoints = suggestions[0].content.split('\n').filter((line: string) => line.trim()).map((line: string) => line.replace(/^[•\-\*]\s*/, '').trim());
+        } else {
+          console.error('Invalid content format:', suggestions[0].content);
+          throw new Error('Invalid content format from AI service');
+        }
+        
+        if (bulletPoints.length > 0) {
+          updateBulletPoint(expIndex, bulletIndex, bulletPoints[0]);
+          setBulletSuccess({ expIndex, bulletIndex });
+          // Clear success message after 3 seconds
+          setTimeout(() => setBulletSuccess(null), 3000);
+        } else {
+          throw new Error('No valid bullet points generated');
+        }
+      } else {
+        console.error('Invalid suggestions response:', suggestions);
+        throw new Error('Invalid response format from AI service');
+      }
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : 'Failed to generate bullet point']);
+    } finally {
+      setBulletLoading(null);
+    }
   };
 
   return (
@@ -398,11 +719,26 @@ export default function ResumeBuilderPage() {
              <div className="text-sm text-gray-600">
                Template: <span className="font-medium">{currentTemplateData?.name}</span>
              </div>
-             {!isAuthenticated && (
-               <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full border border-orange-200">
-                 Local Mode
-               </div>
+             
+             {/* Save to Account button for authenticated users with local data */}
+             {isAuthenticated && hasLocalData() && (
+               <Button
+                 variant="outline"
+                 onClick={handleSaveToAccount}
+                 disabled={loading}
+                 className="flex items-center gap-2"
+               >
+                 {loading ? (
+                   <Loader2 className="h-4 w-4 animate-spin" />
+                 ) : (
+                   <>
+                     <CheckCircle className="h-4 w-4" />
+                     Save to Account
+                   </>
+                 )}
+               </Button>
              )}
+             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
@@ -451,27 +787,40 @@ export default function ResumeBuilderPage() {
          </div>
        )}
 
-       {success && (
-         <div className="px-4 py-4 flex-shrink-0">
-           <Alert>
-             <CheckCircle className="h-4 w-4" />
-             <AlertDescription>
-               Resume exported successfully! Check your downloads or print dialog.
-             </AlertDescription>
-           </Alert>
-         </div>
-       )}
+               {summarySuccess && (
+          <div className="px-4 py-4 flex-shrink-0">
+            <Alert>
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                Summary generated successfully!
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
 
-       {/* Local Data Banner */}
-       {showLocalDataBanner && !isAuthenticated && (
-         <div className="px-4 py-4 flex-shrink-0">
-           <LocalDataBanner
-             lastModified={localStorageUtils.getLastModified() || Date.now()}
-             onLoadData={handleLoadLocalData}
-             onClearData={handleClearLocalData}
-           />
-         </div>
-       )}
+                 {saveSuccess && (
+           <div className="px-4 py-4 flex-shrink-0">
+             <Alert>
+               <CheckCircle className="h-4 w-4" />
+               <AlertDescription>
+                 Resume saved to your account successfully! You can now access it from your dashboard.
+               </AlertDescription>
+             </Alert>
+           </div>
+         )}
+
+         {success && (
+           <div className="px-4 py-4 flex-shrink-0">
+             <Alert>
+               <CheckCircle className="h-4 w-4" />
+               <AlertDescription>
+                 Resume exported successfully! Check your downloads or print dialog.
+               </AlertDescription>
+             </Alert>
+           </div>
+         )}
+
+
 
       {/* Main Content */}
       <div className="resume-builder-content">
@@ -507,55 +856,57 @@ export default function ResumeBuilderPage() {
                         </div>
                         <div>
                           <Label htmlFor="title">Professional Title</Label>
-                          <Input
-                            id="title"
-                            value={resumeData.personalInfo.title}
-                            onChange={(e) => updatePersonalInfo('title', e.target.value)}
-                            placeholder="Software Engineer"
-                          />
+                                                     <Input
+                             id="title"
+                             value={resumeData.personalInfo.title}
+                             onChange={(e) => updatePersonalInfo('title', e.target.value)}
+                             placeholder="e.g., Marketing Manager, Nurse, Teacher, Sales Representative"
+                           />
                         </div>
                       </div>
                       
-                      <div>
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={resumeData.personalInfo.email}
-                          onChange={(e) => updatePersonalInfo('email', e.target.value)}
-                          placeholder="john.doe@example.com"
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="phone">Phone</Label>
-                        <Input
-                          id="phone"
-                          value={resumeData.personalInfo.phone}
-                          onChange={(e) => updatePersonalInfo('phone', e.target.value)}
-                          placeholder="+1 (555) 123-4567"
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="location">Location</Label>
-                        <Input
-                          id="location"
-                          value={resumeData.personalInfo.location}
-                          onChange={(e) => updatePersonalInfo('location', e.target.value)}
-                          placeholder="San Francisco, CA"
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="linkedin">LinkedIn (Optional)</Label>
-                        <Input
-                          id="linkedin"
-                          value={resumeData.personalInfo.linkedin}
-                          onChange={(e) => updatePersonalInfo('linkedin', e.target.value)}
-                          placeholder="linkedin.com/in/johndoe"
-                        />
-                      </div>
+                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div>
+                           <Label htmlFor="email">Email</Label>
+                           <Input
+                             id="email"
+                             type="email"
+                             value={resumeData.personalInfo.email}
+                             onChange={(e) => updatePersonalInfo('email', e.target.value)}
+                             placeholder="john.doe@example.com"
+                           />
+                         </div>
+                         <div>
+                           <Label htmlFor="phone">Phone</Label>
+                           <Input
+                             id="phone"
+                             value={resumeData.personalInfo.phone}
+                             onChange={(e) => updatePersonalInfo('phone', e.target.value)}
+                             placeholder="+1 (555) 123-4567"
+                           />
+                         </div>
+                       </div>
+                       
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div>
+                           <Label htmlFor="location">Location</Label>
+                           <Input
+                             id="location"
+                             value={resumeData.personalInfo.location}
+                             onChange={(e) => updatePersonalInfo('location', e.target.value)}
+                             placeholder="e.g., New York, NY or Remote"
+                           />
+                         </div>
+                         <div>
+                           <Label htmlFor="linkedin">LinkedIn (Optional)</Label>
+                           <Input
+                             id="linkedin"
+                             value={resumeData.personalInfo.linkedin}
+                             onChange={(e) => updatePersonalInfo('linkedin', e.target.value)}
+                             placeholder="linkedin.com/in/yourprofile (optional)"
+                           />
+                         </div>
+                       </div>
 
                       {currentTemplateData?.hasPhoto && (
                         <div>
@@ -567,19 +918,53 @@ export default function ResumeBuilderPage() {
                         </div>
                       )}
 
-                      <div>
-                        <Label htmlFor="summary">Professional Summary</Label>
-                        <Textarea
-                          id="summary"
-                          value={resumeData.summary}
-                          onChange={(e) => updateSummary(e.target.value)}
-                          placeholder="Write a compelling summary of your professional background, key achievements, and career objectives..."
-                          rows={6}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                                             <div>
+                         <div className="flex items-center justify-between mb-2">
+                           <Label htmlFor="summary">Professional Summary</Label>
+                           <Button
+                             type="button"
+                             variant="outline"
+                             size="sm"
+                             onClick={handleGenerateSummary}
+                             disabled={summaryLoading}
+                             className="flex items-center gap-2"
+                           >
+                             {summaryLoading ? (
+                               <Loader2 className="h-4 w-4 animate-spin" />
+                             ) : (
+                               <Sparkles className="h-4 w-4" />
+                             )}
+                             Generate Summary
+                           </Button>
+                         </div>
+                                                    <Textarea
+                             id="summary"
+                             value={resumeData.summary}
+                             onChange={(e) => updateSummary(e.target.value)}
+                             placeholder="Write a compelling summary highlighting your key qualifications, relevant experience, and career goals. Focus on what makes you unique and valuable to potential employers."
+                             rows={6}
+                           />
+                                              </div>
+                     </div>
+                     
+                     {/* Navigation buttons */}
+                     <div className="flex items-center justify-between pt-6 border-t">
+                       <Button
+                         variant="outline"
+                         onClick={() => currentStepIndex > 0 && setCurrentStep(steps[currentStepIndex - 1].id as Step)}
+                         disabled={currentStepIndex === 0}
+                       >
+                         ← Previous
+                       </Button>
+                       <Button
+                         onClick={() => currentStepIndex < steps.length - 1 && setCurrentStep(steps[currentStepIndex + 1].id as Step)}
+                         disabled={currentStepIndex === steps.length - 1}
+                       >
+                         Next →
+                       </Button>
+                     </div>
+                   </CardContent>
+                 </Card>
               )}
 
               {currentStep === 'experience' && (
@@ -623,52 +1008,157 @@ export default function ResumeBuilderPage() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <Label>Company</Label>
-                              <Input
-                                value={exp.company}
-                                onChange={(e) => updateExperience(index, 'company', e.target.value)}
-                                placeholder="Company Name"
-                              />
+                                                             <Input
+                                 value={exp.company}
+                                 onChange={(e) => updateExperience(index, 'company', e.target.value)}
+                                 placeholder="e.g., ABC Corporation, Hospital, School District"
+                               />
                             </div>
                             <div>
                               <Label>Position</Label>
-                              <Input
-                                value={exp.position}
-                                onChange={(e) => updateExperience(index, 'position', e.target.value)}
-                                placeholder="Job Title"
-                              />
+                                                             <Input
+                                 value={exp.position}
+                                 onChange={(e) => updateExperience(index, 'position', e.target.value)}
+                                 placeholder="e.g., Manager, Specialist, Coordinator, Assistant"
+                               />
                             </div>
                           </div>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <Label>Start Date</Label>
-                              <Input
-                                value={exp.startDate}
-                                onChange={(e) => updateExperience(index, 'startDate', e.target.value)}
-                                placeholder="2020-01"
-                              />
-                            </div>
-                            <div>
-                              <Label>End Date</Label>
-                              <Input
-                                value={exp.endDate}
-                                onChange={(e) => updateExperience(index, 'endDate', e.target.value)}
-                                placeholder="Present or 2023-12"
-                              />
-                            </div>
-                          </div>
+                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div>
+                               <Label>Start Date</Label>
+                               <Input
+                                 type="month"
+                                 value={exp.startDate}
+                                 onChange={(e) => updateExperience(index, 'startDate', e.target.value)}
+                                 placeholder="2020-01"
+                               />
+                             </div>
+                                                           <div>
+                                <Label>End Date</Label>
+                                <div className="space-y-2">
+                                  <Input
+                                    type="month"
+                                    value={exp.endDate === 'Present' ? '' : exp.endDate}
+                                    onChange={(e) => updateExperience(index, 'endDate', e.target.value)}
+                                    placeholder="2023-12"
+                                    disabled={exp.endDate === 'Present'}
+                                  />
+                                  <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`present-${index}`}
+                                      checked={exp.endDate === 'Present'}
+                                      onCheckedChange={(checked) => updateExperience(index, 'endDate', checked ? 'Present' : '')}
+                                    />
+                                    <Label htmlFor={`present-${index}`} className="text-sm">Present</Label>
+                                  </div>
+                                </div>
+                              </div>
+                           </div>
                           
-                          <div>
-                            <Label>Description</Label>
-                            <Textarea
-                              value={exp.description}
-                              onChange={(e) => updateExperience(index, 'description', e.target.value)}
-                              placeholder="Describe your responsibilities and achievements..."
-                              rows={3}
-                            />
-                          </div>
+                                                     <div>
+                             <div className="flex items-center justify-between mb-2">
+                               <Label>Description Bullets</Label>
+                               <div className="flex items-center gap-2">
+                                 <Button
+                                   type="button"
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => addBulletPoint(index)}
+                                   className="flex items-center gap-2"
+                                 >
+                                   <Plus className="h-4 w-4" />
+                                   Add Bullet
+                                 </Button>
+                                 <Button
+                                   type="button"
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => handleGenerateDescription(index)}
+                                   disabled={descriptionLoading === index}
+                                   className="flex items-center gap-2"
+                                 >
+                                   {descriptionLoading === index ? (
+                                     <Loader2 className="h-4 w-4 animate-spin" />
+                                   ) : (
+                                     <Sparkles className="h-4 w-4" />
+                                   )}
+                                   Generate All
+                                 </Button>
+                               </div>
+                             </div>
+                             
+                             <div className="space-y-2">
+                               {exp.description.map((bullet, bulletIndex) => (
+                                 <div key={bulletIndex} className="flex items-center gap-2">
+                                   <div className="flex-1 flex items-center gap-2">
+                                     <span className="text-gray-500 text-sm w-4">•</span>
+                                     <Input
+                                       value={bullet}
+                                       onChange={(e) => updateBulletPoint(index, bulletIndex, e.target.value)}
+                                       placeholder="Describe a key responsibility, achievement, or contribution..."
+                                       className="flex-1"
+                                     />
+                                   </div>
+                                   <Button
+                                     type="button"
+                                     variant="outline"
+                                     size="sm"
+                                     onClick={() => handleGenerateBulletPoint(index, bulletIndex)}
+                                     disabled={bulletLoading?.expIndex === index && bulletLoading?.bulletIndex === bulletIndex}
+                                     className="flex items-center gap-1"
+                                   >
+                                     {bulletLoading?.expIndex === index && bulletLoading?.bulletIndex === bulletIndex ? (
+                                       <Loader2 className="h-3 w-3 animate-spin" />
+                                     ) : (
+                                       <Sparkles className="h-3 w-3" />
+                                     )}
+                                   </Button>
+                                   <Button
+                                     type="button"
+                                     variant="outline"
+                                     size="sm"
+                                     onClick={() => removeBulletPoint(index, bulletIndex)}
+                                     className="text-red-600 hover:text-red-700"
+                                     disabled={exp.description.length === 1}
+                                   >
+                                     <Trash2 className="h-3 w-3" />
+                                   </Button>
+                                 </div>
+                               ))}
+                             </div>
+                             
+                             {descriptionSuccess === index && (
+                               <p className="text-sm text-green-600 mt-2">
+                                 ✓ All bullets generated successfully!
+                               </p>
+                             )}
+                             
+                             {bulletSuccess?.expIndex === index && (
+                               <p className="text-sm text-green-600 mt-2">
+                                 ✓ Bullet point generated successfully!
+                               </p>
+                             )}
+                           </div>
                         </div>
                       ))}
+                    </div>
+                    
+                    {/* Navigation buttons */}
+                    <div className="flex items-center justify-between pt-6 border-t">
+                      <Button
+                        variant="outline"
+                        onClick={() => currentStepIndex > 0 && setCurrentStep(steps[currentStepIndex - 1].id as Step)}
+                        disabled={currentStepIndex === 0}
+                      >
+                        ← Previous
+                      </Button>
+                      <Button
+                        onClick={() => currentStepIndex < steps.length - 1 && setCurrentStep(steps[currentStepIndex + 1].id as Step)}
+                        disabled={currentStepIndex === steps.length - 1}
+                      >
+                        Next →
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -715,30 +1205,30 @@ export default function ResumeBuilderPage() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <Label>School</Label>
-                              <Input
-                                value={edu.school}
-                                onChange={(e) => updateEducation(index, 'school', e.target.value)}
-                                placeholder="University Name"
-                              />
+                                                             <Input
+                                 value={edu.school}
+                                 onChange={(e) => updateEducation(index, 'school', e.target.value)}
+                                 placeholder="e.g., University Name, College, or Institution"
+                               />
                             </div>
                             <div>
                               <Label>Degree</Label>
-                              <Input
-                                value={edu.degree}
-                                onChange={(e) => updateEducation(index, 'degree', e.target.value)}
-                                placeholder="Bachelor of Science"
-                              />
+                                                             <Input
+                                 value={edu.degree}
+                                 onChange={(e) => updateEducation(index, 'degree', e.target.value)}
+                                 placeholder="e.g., Bachelor's, Master's, Associate's, Certificate"
+                               />
                             </div>
                           </div>
                           
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <Label>Field of Study</Label>
-                              <Input
-                                value={edu.field}
-                                onChange={(e) => updateEducation(index, 'field', e.target.value)}
-                                placeholder="Computer Science"
-                              />
+                                                             <Input
+                                 value={edu.field}
+                                 onChange={(e) => updateEducation(index, 'field', e.target.value)}
+                                 placeholder="e.g., Business, Nursing, Education, Engineering"
+                               />
                             </div>
                             <div>
                               <Label>Graduation Year</Label>
@@ -761,6 +1251,23 @@ export default function ResumeBuilderPage() {
                         </div>
                       ))}
                     </div>
+                    
+                    {/* Navigation buttons */}
+                    <div className="flex items-center justify-between pt-6 border-t">
+                      <Button
+                        variant="outline"
+                        onClick={() => currentStepIndex > 0 && setCurrentStep(steps[currentStepIndex - 1].id as Step)}
+                        disabled={currentStepIndex === 0}
+                      >
+                        ← Previous
+                      </Button>
+                      <Button
+                        onClick={() => currentStepIndex < steps.length - 1 && setCurrentStep(steps[currentStepIndex + 1].id as Step)}
+                        disabled={currentStepIndex === steps.length - 1}
+                      >
+                        Next →
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -781,12 +1288,32 @@ export default function ResumeBuilderPage() {
                   <CardContent>
                     {/* Skills Section */}
                     <div className="pt-4">
-                      <Label>Skills & Competencies</Label>
+                                             <Label>Skills & Competencies</Label>
+                       <p className="text-sm text-muted-foreground mb-4">
+                         Add relevant skills for your industry. Include technical skills, soft skills, certifications, and tools you're proficient with.
+                       </p>
                       <SkillsInput
                         skills={resumeData.skills || []}
                         onSkillsChange={updateSkills}
                         jobRole={resumeData.personalInfo.title}
                       />
+                    </div>
+                    
+                    {/* Navigation buttons */}
+                    <div className="flex items-center justify-between pt-6 border-t">
+                      <Button
+                        variant="outline"
+                        onClick={() => currentStepIndex > 0 && setCurrentStep(steps[currentStepIndex - 1].id as Step)}
+                        disabled={currentStepIndex === 0}
+                      >
+                        ← Previous
+                      </Button>
+                      <Button
+                        onClick={() => currentStepIndex < steps.length - 1 && setCurrentStep(steps[currentStepIndex + 1].id as Step)}
+                        disabled={currentStepIndex === steps.length - 1}
+                      >
+                        Next →
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -808,42 +1335,38 @@ export default function ResumeBuilderPage() {
                   <CardContent>
                     {/* Languages Section */}
                     <div className="pt-4">
-                      <Label>Language Proficiencies</Label>
+                                             <Label>Language Proficiencies</Label>
+                       <p className="text-sm text-muted-foreground mb-4">
+                         List languages you speak, read, or write. Include proficiency levels (e.g., Fluent, Conversational, Basic).
+                       </p>
                       <SkillsInput
                         skills={resumeData.languages || []}
                         onSkillsChange={updateLanguages}
                         jobRole={resumeData.personalInfo.title}
                       />
                     </div>
+                    
+                    {/* Navigation buttons */}
+                    <div className="flex items-center justify-between pt-6 border-t">
+                      <Button
+                        variant="outline"
+                        onClick={() => currentStepIndex > 0 && setCurrentStep(steps[currentStepIndex - 1].id as Step)}
+                        disabled={currentStepIndex === 0}
+                      >
+                        ← Previous
+                      </Button>
+                      <Button
+                        onClick={() => currentStepIndex < steps.length - 1 && setCurrentStep(steps[currentStepIndex + 1].id as Step)}
+                        disabled={currentStepIndex === steps.length - 1}
+                      >
+                        Next →
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               )}
 
-              {/* Navigation */}
-              <div className="flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  onClick={prevStep}
-                  disabled={currentStepIndex === 0}
-                >
-                  <ChevronLeft className="h-4 w-4 mr-2" />
-                  Previous
-                </Button>
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    Step {currentStepIndex + 1} of {steps.length}
-                  </span>
-                </div>
-                
-                <Button
-                  onClick={nextStep}
-                  disabled={currentStepIndex === steps.length - 1}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
+              
             </div>
 
             {/* Preview */}

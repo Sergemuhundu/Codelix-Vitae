@@ -1,50 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { localStorageUtils, LocalResumeData } from '@/lib/local-storage';
 import { ResumeData } from '@/types/resume';
+import { useAuth } from '@/lib/auth';
 
 export function useAuthState() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const { user, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
+  // Use the actual Supabase user state for authentication
+  const isAuthenticated = !!user;
+
   useEffect(() => {
-    // Check authentication status
-    const checkAuth = async () => {
-      try {
-        // Check for Supabase session or other auth tokens
-        const token = localStorage.getItem('auth_token') || 
-                     sessionStorage.getItem('auth_token') ||
-                     localStorage.getItem('sb-access-token') ||
-                     sessionStorage.getItem('sb-access-token');
-        
-        // For now, we'll consider users authenticated if they have any token
-        // In a real implementation, you'd validate the token with your auth service
-        setIsAuthenticated(!!token);
-      } catch (error) {
-        console.error('Error checking authentication:', error);
-        setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // Set loading state based on auth loading
+    setIsLoading(authLoading);
+  }, [authLoading]);
 
-    checkAuth();
-  }, []);
-
-  const requireAuth = (action: string, callback?: () => void) => {
+  const requireAuth = useCallback((action: string, callback?: () => void) => {
     if (!isAuthenticated) {
       // Save current action to redirect back after login
       sessionStorage.setItem('pending_action', action);
       sessionStorage.setItem('redirect_after_login', window.location.pathname + window.location.search);
       
-      // Show a more user-friendly message
-      const message = `Please log in or create an account to ${action}. Your progress will be saved locally.`;
-      
-      // Show a user-friendly message
-      alert(message);
-      
-      // Redirect to login page
+      // Redirect to login page without showing any message
       router.push('/auth/login');
       return false;
     }
@@ -53,37 +32,41 @@ export function useAuthState() {
       callback();
     }
     return true;
-  };
+  }, [isAuthenticated, router]);
 
-  const loadLocalData = (): LocalResumeData | null => {
-    if (isAuthenticated) {
-      // If authenticated, clear local data and return null
-      localStorageUtils.clearResumeData();
-      return null;
-    }
-    
+  const loadLocalData = useCallback((): LocalResumeData | null => {
+    // Always try to load local data first, regardless of authentication status
+    // This ensures that local data is preserved when user logs in
     return localStorageUtils.loadResumeData();
-  };
+  }, []);
 
-  const saveLocalData = (resumeData: ResumeData, selectedTemplate: string) => {
+  const saveLocalData = useCallback((resumeData: ResumeData, selectedTemplate: string) => {
     if (!isAuthenticated) {
       localStorageUtils.saveResumeData(resumeData, selectedTemplate);
     }
-  };
+  }, [isAuthenticated]);
 
-  const autoSaveLocalData = (resumeData: ResumeData, selectedTemplate: string) => {
-    if (!isAuthenticated) {
+  const autoSaveLocalData = useCallback((resumeData: ResumeData, selectedTemplate: string) => {
+    // Auto-save for non-authenticated users or authenticated users who have local data
+    if (!isAuthenticated || localStorageUtils.hasSavedData()) {
       localStorageUtils.autoSave(resumeData, selectedTemplate);
     }
-  };
+  }, [isAuthenticated]);
 
-  const clearLocalData = () => {
+  const clearLocalData = useCallback(() => {
     localStorageUtils.clearResumeData();
-  };
+  }, []);
 
-  const hasLocalData = (): boolean => {
-    return !isAuthenticated && localStorageUtils.hasSavedData();
-  };
+  const clearLocalDataAfterSave = useCallback(() => {
+    // Clear local data after it has been successfully saved to authenticated user's account
+    if (isAuthenticated) {
+      localStorageUtils.clearResumeData();
+    }
+  }, [isAuthenticated]);
+
+  const hasLocalData = useCallback((): boolean => {
+    return localStorageUtils.hasSavedData();
+  }, []);
 
   return {
     isAuthenticated,
@@ -93,6 +76,7 @@ export function useAuthState() {
     saveLocalData,
     autoSaveLocalData,
     clearLocalData,
+    clearLocalDataAfterSave,
     hasLocalData,
   };
 } 

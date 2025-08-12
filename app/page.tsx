@@ -1,10 +1,19 @@
+'use client';
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Target, Zap, Users, CheckCircle, ArrowRight, Star } from 'lucide-react';
+import { FileText, Target, Zap, Users, CheckCircle, ArrowRight, Star, User, LogOut } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
 
 export default function HomePage() {
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
       {/* Header */}
@@ -17,12 +26,29 @@ export default function HomePage() {
             <span className="text-xl font-bold">CVAdapter</span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/auth/login">
-              <Button variant="ghost">Sign In</Button>
-            </Link>
-            <Link href="/auth/signup">
-              <Button>Get Started</Button>
-            </Link>
+            {user ? (
+              <>
+                <Link href="/dashboard">
+                  <Button variant="ghost">
+                    <User className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </Button>
+                </Link>
+                <Button variant="outline" onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link href="/auth/login">
+                  <Button variant="ghost">Sign In</Button>
+                </Link>
+                <Link href="/auth/signup">
+                  <Button>Get Started</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -40,17 +66,35 @@ export default function HomePage() {
           Create Professional Resumes with AI. Build stunning resumes that stand out from the crowd.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link href="/templates">
-            <Button size="lg" className="text-lg px-8">
-              Start Building Free
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-          </Link>
-          <Link href="/dashboard">
-            <Button variant="outline" size="lg" className="text-lg px-8">
-              View Demo
-            </Button>
-          </Link>
+          {user ? (
+            <>
+              <Link href="/dashboard">
+                <Button size="lg" className="text-lg px-8">
+                  Go to Dashboard
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+              <Link href="/templates">
+                <Button variant="outline" size="lg" className="text-lg px-8">
+                  Browse Templates
+                </Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/templates">
+                <Button size="lg" className="text-lg px-8">
+                  Start Building Free
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+              <Link href="/dashboard">
+                <Button variant="outline" size="lg" className="text-lg px-8">
+                  View Demo
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </section>
 
@@ -150,12 +194,21 @@ export default function HomePage() {
             <p className="text-xl mb-8 opacity-90">
               Join thousands of professionals who have landed their dream jobs with CVAdapter.
             </p>
-            <Link href="/templates">
-              <Button size="lg" variant="secondary" className="text-lg px-8">
-                Start Your Free Trial
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
+            {user ? (
+              <Link href="/dashboard">
+                <Button size="lg" variant="secondary" className="text-lg px-8">
+                  Continue Building
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/templates">
+                <Button size="lg" variant="secondary" className="text-lg px-8">
+                  Start Your Free Trial
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+            )}
           </CardContent>
         </Card>
       </section>
