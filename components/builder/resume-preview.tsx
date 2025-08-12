@@ -78,7 +78,7 @@ export function ResumePreview({ data, template }: ResumePreviewProps) {
       </div>
 
       {/* Preview Container */}
-      <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
+      <div className="border rounded-lg overflow-hidden bg-white shadow-sm max-h-[800px] overflow-y-auto">
         <div 
           className="w-full"
           dangerouslySetInnerHTML={{ __html: previewHtml }}

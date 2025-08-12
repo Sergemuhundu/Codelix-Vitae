@@ -127,90 +127,132 @@ export function PhotoUpload({ photo, onPhotoChange, name, photoAdjustments }: Ph
   };
 
   return (
-    <Card className="w-full">
-      <CardContent className="p-6">
-        <div className="flex flex-col items-center space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Profile Photo</h3>
-          
-          {/* Photo Display */}
-          <div className="relative">
-            <div className="w-32 h-32 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
-              {photo ? (
-                <img
-                  src={photo}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                  style={getImageStyle()}
-                />
-              ) : (
-                <Camera className="w-8 h-8 text-gray-400" />
-              )}
-            </div>
-            
-            {photo && (
-              <button
-                onClick={handleRemovePhoto}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+    <div className="w-full">
+      <div className="flex items-start space-x-4">
+        {/* Photo Display */}
+        <div className="relative flex-shrink-0">
+          <div className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+            {photo ? (
+              <img
+                src={photo}
+                alt="Profile"
+                className="w-full h-full object-cover"
+                style={getImageStyle()}
+              />
+            ) : (
+              <Camera className="w-6 h-6 text-gray-400" />
             )}
           </div>
-
-          {/* Image Adjustment Controls */}
+          
           {photo && (
-            <div className="w-full space-y-4">
+            <button
+              onClick={handleRemovePhoto}
+              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+
+        {/* Upload/Controls Section */}
+        <div className="flex-1 min-w-0">
+          {!photo ? (
+            /* Upload Area */
+            <div
+              className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <Camera className="w-6 h-6 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-600 mb-2">
+                Drag and drop an image here, or click to select
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-xs"
+              >
+                Choose Photo
+              </Button>
+            </div>
+          ) : (
+            /* Compact Adjustment Controls */
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-700">Adjust Image</span>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={resetAdjustments}
-                  className="text-xs"
+                  className="text-xs h-7 px-2"
                 >
                   <RotateCw className="w-3 h-3 mr-1" />
                   Reset
                 </Button>
               </div>
 
-              {/* Scale Control */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span>Zoom</span>
-                  <span>{Math.round(imageAdjustments.scale * 100)}%</span>
+              {/* Compact Controls Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Scale Control */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-gray-600">
+                    <span>Zoom</span>
+                    <span>{Math.round(imageAdjustments.scale * 100)}%</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => adjustImage('scale', Math.max(0.5, imageAdjustments.scale - 0.1))}
+                      className="p-1 h-6 w-6"
+                    >
+                      <ZoomOut className="w-3 h-3" />
+                    </Button>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2"
+                      step="0.1"
+                      value={imageAdjustments.scale}
+                      onChange={(e) => adjustImage('scale', parseFloat(e.target.value))}
+                      className="flex-1 h-2"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => adjustImage('scale', Math.min(2, imageAdjustments.scale + 0.1))}
+                      className="p-1 h-6 w-6"
+                    >
+                      <ZoomIn className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => adjustImage('scale', Math.max(0.5, imageAdjustments.scale - 0.1))}
-                    className="p-1"
-                  >
-                    <ZoomOut className="w-3 h-3" />
-                  </Button>
+
+                {/* Rotation Control */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-gray-600">
+                    <span>Rotation</span>
+                    <span>{imageAdjustments.rotation}°</span>
+                  </div>
                   <input
                     type="range"
-                    min="0.5"
-                    max="2"
-                    step="0.1"
-                    value={imageAdjustments.scale}
-                    onChange={(e) => adjustImage('scale', parseFloat(e.target.value))}
-                    className="flex-1"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    value={imageAdjustments.rotation}
+                    onChange={(e) => adjustImage('rotation', parseInt(e.target.value))}
+                    className="w-full h-2"
                   />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => adjustImage('scale', Math.min(2, imageAdjustments.scale + 0.1))}
-                    className="p-1"
-                  >
-                    <ZoomIn className="w-3 h-3" />
-                  </Button>
                 </div>
               </div>
 
               {/* Position Controls */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs text-gray-600">
                     <span>Horizontal</span>
                     <span>{imageAdjustments.translateX}px</span>
@@ -222,11 +264,11 @@ export function PhotoUpload({ photo, onPhotoChange, name, photoAdjustments }: Ph
                     step="1"
                     value={imageAdjustments.translateX}
                     onChange={(e) => adjustImage('translateX', parseInt(e.target.value))}
-                    className="w-full"
+                    className="w-full h-2"
                   />
                 </div>
                 
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs text-gray-600">
                     <span>Vertical</span>
                     <span>{imageAdjustments.translateY}px</span>
@@ -238,65 +280,22 @@ export function PhotoUpload({ photo, onPhotoChange, name, photoAdjustments }: Ph
                     step="1"
                     value={imageAdjustments.translateY}
                     onChange={(e) => adjustImage('translateY', parseInt(e.target.value))}
-                    className="w-full"
+                    className="w-full h-2"
                   />
                 </div>
               </div>
-
-              {/* Rotation Control */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span>Rotation</span>
-                  <span>{imageAdjustments.rotation}°</span>
-                </div>
-                <input
-                  type="range"
-                  min="-180"
-                  max="180"
-                  step="1"
-                  value={imageAdjustments.rotation}
-                  onChange={(e) => adjustImage('rotation', parseInt(e.target.value))}
-                  className="w-full"
-                />
-              </div>
             </div>
           )}
-
-          {/* Upload Button */}
-          {!photo && (
-            <div className="w-full">
-              <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                  isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-600 mb-2">
-                  Drag and drop an image here, or click to select
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-sm"
-                >
-                  Choose Photo
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileInputChange}
-            className="hidden"
-          />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
+    </div>
   );
 } 

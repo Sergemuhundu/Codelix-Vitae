@@ -45,7 +45,7 @@ export function Sidebar() {
             </div>
             {!isCollapsed && (
               <div>
-                <h1 className="font-bold text-lg">CodelixVitae</h1>
+                <h1 className="font-bold text-lg">CVAdapter</h1>
                 <p className="text-xs text-muted-foreground">AI Resume Builder</p>
               </div>
             )}

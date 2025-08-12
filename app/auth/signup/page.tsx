@@ -47,7 +47,7 @@ export default function SignupPage() {
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
               <FileText className="h-5 w-5 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold">CodelixVitae</h1>
+            <h1 className="text-2xl font-bold">CVAdapter</h1>
           </div>
           <p className="text-muted-foreground">
             AI-Powered Resume Builder

@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuthState } from '@/hooks/use-auth-state';
+import { LocalDataBanner } from '@/components/builder/local-data-banner';
+import { localStorageUtils } from '@/lib/local-storage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -40,6 +43,23 @@ import {
 
 type Step = 'personal' | 'experience' | 'education' | 'skills' | 'languages';
 
+// Debounce hook for input optimization
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export default function ResumeBuilderPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -48,45 +68,71 @@ export default function ResumeBuilderPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
+  const [showLocalDataBanner, setShowLocalDataBanner] = useState(false);
   
-  // Initialize resume data state with sample data
+  // Authentication and local storage management
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    requireAuth,
+    loadLocalData,
+    saveLocalData,
+    autoSaveLocalData,
+    clearLocalData,
+    hasLocalData,
+  } = useAuthState();
+  
+  // Initialize resume data state
   const [resumeData, setResumeData] = useState<ResumeData>(getResumePreviewData());
 
-  const steps = [
+  // Debounced resume data for preview updates
+  const debouncedResumeData = useDebounce(resumeData, 300);
+
+  const steps = useMemo(() => [
     { id: 'personal', title: 'Personal Info', description: 'Basic information and summary' },
     { id: 'experience', title: 'Experience', description: 'Work history and achievements' },
     { id: 'education', title: 'Education', description: 'Academic background' },
     { id: 'skills', title: 'Skills', description: 'Competencies and expertise' },
     { id: 'languages', title: 'Languages', description: 'Language proficiencies' }
-  ];
+  ], []);
 
   const currentStepIndex = steps.findIndex(step => step.id === currentStep);
 
-  // Get template from URL params
+  // Get template from URL params and load local data
   useEffect(() => {
     const templateParam = searchParams.get('template');
     if (templateParam) {
       setSelectedTemplate(templateParam);
     }
-  }, [searchParams]);
+
+    // Load local data if available and user is not authenticated
+    if (!authLoading && !isAuthenticated) {
+      const localData = loadLocalData();
+      if (localData) {
+        setResumeData(localData.resumeData);
+        setSelectedTemplate(localData.selectedTemplate);
+        setShowLocalDataBanner(true);
+      }
+    }
+  }, [searchParams, authLoading, isAuthenticated, loadLocalData]);
 
   const currentTemplateData = AVAILABLE_TEMPLATES.find(t => t.id === selectedTemplate);
 
-  const nextStep = () => {
+  const nextStep = useCallback(() => {
     const nextIndex = currentStepIndex + 1;
     if (nextIndex < steps.length) {
       setCurrentStep(steps[nextIndex].id as Step);
     }
-  };
+  }, [currentStepIndex, steps]);
 
-  const prevStep = () => {
+  const prevStep = useCallback(() => {
     const prevIndex = currentStepIndex - 1;
     if (prevIndex >= 0) {
       setCurrentStep(steps[prevIndex].id as Step);
     }
-  };
+  }, [currentStepIndex, steps]);
   
-  const updatePersonalInfo = (field: keyof PersonalInfo, value: string) => {
+  const updatePersonalInfo = useCallback((field: keyof PersonalInfo, value: string) => {
     setResumeData(prev => ({
       ...prev,
       personalInfo: {
@@ -94,108 +140,120 @@ export default function ResumeBuilderPage() {
         [field]: value,
       },
     }));
-  };
+  }, []);
 
-  const updateSummary = (value: string) => {
+  const updateSummary = useCallback((value: string) => {
     setResumeData(prev => ({
       ...prev,
       summary: value,
     }));
-  };
+  }, []);
 
-  const updatePhoto = (photo: string | null, adjustments?: {
+  const updatePhoto = useCallback((photo: string | null, adjustments?: {
     scale: number;
     translateX: number;
     translateY: number;
     rotation: number;
   }) => {
-    updatePersonalInfo('photo', photo || '');
-    if (adjustments) {
-      setResumeData(prev => ({
-        ...prev,
-        personalInfo: {
-          ...prev.personalInfo,
-          photoAdjustments: adjustments,
-        },
-      }));
-    }
-  };
-
-  const addExperience = () => {
-    const newExperience: Experience = {
-      company: '',
-      position: '',
-      startDate: '',
-      endDate: '',
-      description: '',
-    };
     setResumeData(prev => ({
       ...prev,
-      experience: [...(prev.experience || []), newExperience],
+      personalInfo: {
+        ...prev.personalInfo,
+        photo: photo || undefined,
+        photoAdjustments: adjustments || prev.personalInfo.photoAdjustments,
+      },
     }));
-  };
+  }, []);
 
-  const updateExperience = (index: number, field: keyof Experience, value: string) => {
+  const addExperience = useCallback(() => {
     setResumeData(prev => ({
       ...prev,
-      experience: prev.experience?.map((exp, i) => 
+      experience: [
+        ...(prev.experience || []),
+        {
+          company: '',
+          position: '',
+          startDate: '',
+          endDate: '',
+          description: '',
+        },
+      ],
+    }));
+  }, []);
+
+  const updateExperience = useCallback((index: number, field: keyof Experience, value: string) => {
+    setResumeData(prev => ({
+      ...prev,
+      experience: (prev.experience || []).map((exp, i) =>
         i === index ? { ...exp, [field]: value } : exp
       ),
     }));
-  };
+  }, []);
 
-  const removeExperience = (index: number) => {
+  const removeExperience = useCallback((index: number) => {
     setResumeData(prev => ({
       ...prev,
-      experience: prev.experience?.filter((_, i) => i !== index),
+      experience: (prev.experience || []).filter((_, i) => i !== index),
     }));
-  };
+  }, []);
 
-  const addEducation = () => {
-    const newEducation: Education = {
-      school: '',
-      degree: '',
-      field: '',
-      graduationYear: '',
-      gpa: '',
-    };
+  const addEducation = useCallback(() => {
     setResumeData(prev => ({
       ...prev,
-      education: [...(prev.education || []), newEducation],
+      education: [
+        ...(prev.education || []),
+        {
+          school: '',
+          degree: '',
+          field: '',
+          graduationYear: '',
+          gpa: '',
+        },
+      ],
     }));
-  };
+  }, []);
 
-  const updateEducation = (index: number, field: keyof Education, value: string) => {
+  const updateEducation = useCallback((index: number, field: keyof Education, value: string) => {
     setResumeData(prev => ({
       ...prev,
-      education: prev.education?.map((edu, i) => 
+      education: (prev.education || []).map((edu, i) =>
         i === index ? { ...edu, [field]: value } : edu
       ),
     }));
-  };
+  }, []);
 
-  const removeEducation = (index: number) => {
+  const removeEducation = useCallback((index: number) => {
     setResumeData(prev => ({
       ...prev,
-      education: prev.education?.filter((_, i) => i !== index),
+      education: (prev.education || []).filter((_, i) => i !== index),
     }));
-  };
+  }, []);
 
-  const updateSkills = (skills: string[]) => {
+  const updateSkills = useCallback((skills: string[]) => {
     setResumeData(prev => ({
       ...prev,
-      skills: skills,
+      skills,
     }));
-  };
+  }, []);
 
-  const updateLanguages = (languages: string[]) => {
+  const updateLanguages = useCallback((languages: string[]) => {
     setResumeData(prev => ({
       ...prev,
-      languages: languages,
+      languages,
     }));
-  };
+  }, []);
+
+  // Auto-save data when it changes (for non-authenticated users)
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      autoSaveLocalData(resumeData, selectedTemplate);
+    }
+  }, [resumeData, selectedTemplate, authLoading, isAuthenticated, autoSaveLocalData]);
 
   const handleGeneratePDF = async () => {
+    if (!requireAuth('generate PDF', () => {})) {
+      return;
+    }
     setLoading(true);
     setErrors([]);
     setSuccess(false);
@@ -220,6 +278,9 @@ export default function ResumeBuilderPage() {
   };
 
   const handleDownloadPDF = async () => {
+    if (!requireAuth('download PDF', () => {})) {
+      return;
+    }
     setLoading(true);
     setErrors([]);
     setSuccess(false);
@@ -244,6 +305,9 @@ export default function ResumeBuilderPage() {
   };
 
   const handlePrintResume = async () => {
+    if (!requireAuth('print resume', () => {})) {
+      return;
+    }
     setLoading(true);
     setErrors([]);
     setSuccess(false);
@@ -280,17 +344,33 @@ export default function ResumeBuilderPage() {
   };
 
   const handleBackToTemplates = () => {
-    router.push('/dashboard/builder');
+    router.push('/templates');
   };
 
   const handleGoToDashboard = () => {
-    router.push('/dashboard');
+    router.push('/');
+  };
+
+  // Local data handlers
+  const handleLoadLocalData = () => {
+    const localData = loadLocalData();
+    if (localData) {
+      setResumeData(localData.resumeData);
+      setSelectedTemplate(localData.selectedTemplate);
+      setShowLocalDataBanner(false);
+    }
+  };
+
+  const handleClearLocalData = () => {
+    clearLocalData();
+    setResumeData(getResumePreviewData());
+    setShowLocalDataBanner(false);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="resume-builder-page bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4">
+      <div className="bg-white border-b border-gray-200 px-4 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Button
@@ -314,10 +394,15 @@ export default function ResumeBuilderPage() {
             </Button>
           </div>
           
-          <div className="flex items-center space-x-4">
-            <div className="text-sm text-gray-600">
-              Template: <span className="font-medium">{currentTemplateData?.name}</span>
-            </div>
+                     <div className="flex items-center space-x-4">
+             <div className="text-sm text-gray-600">
+               Template: <span className="font-medium">{currentTemplateData?.name}</span>
+             </div>
+             {!isAuthenticated && (
+               <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full border border-orange-200">
+                 Local Mode
+               </div>
+             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
@@ -350,422 +435,435 @@ export default function ResumeBuilderPage() {
         </div>
       </div>
 
-      {/* Alerts */}
-      {errors.length > 0 && (
-        <div className="px-4 py-4">
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <ul className="list-disc list-inside">
-                {errors.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
+             {/* Alerts */}
+       {errors.length > 0 && (
+         <div className="px-4 py-4 flex-shrink-0">
+           <Alert variant="destructive">
+             <AlertCircle className="h-4 w-4" />
+             <AlertDescription>
+               <ul className="list-disc list-inside">
+                 {errors.map((error, index) => (
+                   <li key={index}>{error}</li>
+                 ))}
+               </ul>
+             </AlertDescription>
+           </Alert>
+         </div>
+       )}
 
-      {success && (
-        <div className="px-4 py-4">
-          <Alert>
-            <CheckCircle className="h-4 w-4" />
-            <AlertDescription>
-              Resume exported successfully! Check your downloads or print dialog.
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
+       {success && (
+         <div className="px-4 py-4 flex-shrink-0">
+           <Alert>
+             <CheckCircle className="h-4 w-4" />
+             <AlertDescription>
+               Resume exported successfully! Check your downloads or print dialog.
+             </AlertDescription>
+           </Alert>
+         </div>
+       )}
+
+       {/* Local Data Banner */}
+       {showLocalDataBanner && !isAuthenticated && (
+         <div className="px-4 py-4 flex-shrink-0">
+           <LocalDataBanner
+             lastModified={localStorageUtils.getLastModified() || Date.now()}
+             onLoadData={handleLoadLocalData}
+             onClearData={handleClearLocalData}
+           />
+         </div>
+       )}
 
       {/* Main Content */}
-      <div className="w-full px-4 pb-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl mx-auto">
-          {/* Form */}
-          <div className="space-y-6">
-            {currentStep === 'personal' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Personal Info</CardTitle>
-                  {/* Step Progress Bar */}
-                  <div className="pt-4">
-                    <StepProgress 
-                      steps={steps} 
-                      currentStep={currentStep} 
-                      onStepClick={(stepId) => setCurrentStep(stepId as Step)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Personal Information Step */}
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="name">Full Name</Label>
-                        <Input
-                          id="name"
-                          value={resumeData.personalInfo.name}
-                          onChange={(e) => updatePersonalInfo('name', e.target.value)}
-                          placeholder="John Doe"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="title">Professional Title</Label>
-                        <Input
-                          id="title"
-                          value={resumeData.personalInfo.title}
-                          onChange={(e) => updatePersonalInfo('title', e.target.value)}
-                          placeholder="Software Engineer"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={resumeData.personalInfo.email}
-                        onChange={(e) => updatePersonalInfo('email', e.target.value)}
-                        placeholder="john.doe@example.com"
+      <div className="resume-builder-content">
+        <div className="w-full px-4 pb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl mx-auto">
+            {/* Form */}
+            <div className="space-y-6">
+              {currentStep === 'personal' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Personal Info</CardTitle>
+                    {/* Step Progress Bar */}
+                    <div className="pt-4">
+                      <StepProgress 
+                        steps={steps} 
+                        currentStep={currentStep} 
+                        onStepClick={(stepId) => setCurrentStep(stepId as Step)}
                       />
                     </div>
-                    
-                    <div>
-                      <Label htmlFor="phone">Phone</Label>
-                      <Input
-                        id="phone"
-                        value={resumeData.personalInfo.phone}
-                        onChange={(e) => updatePersonalInfo('phone', e.target.value)}
-                        placeholder="+1 (555) 123-4567"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="location">Location</Label>
-                      <Input
-                        id="location"
-                        value={resumeData.personalInfo.location}
-                        onChange={(e) => updatePersonalInfo('location', e.target.value)}
-                        placeholder="San Francisco, CA"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="linkedin">LinkedIn (Optional)</Label>
-                      <Input
-                        id="linkedin"
-                        value={resumeData.personalInfo.linkedin}
-                        onChange={(e) => updatePersonalInfo('linkedin', e.target.value)}
-                        placeholder="linkedin.com/in/johndoe"
-                      />
-                    </div>
-
-                    {currentTemplateData?.hasPhoto && (
-                      <div>
-                        <Label>Profile Photo (Optional)</Label>
-                        <PhotoUpload
-                          photo={resumeData.personalInfo.photo || null}
-                          onPhotoChange={updatePhoto}
-                        />
-                      </div>
-                    )}
-
-                    <div>
-                      <Label htmlFor="summary">Professional Summary</Label>
-                      <Textarea
-                        id="summary"
-                        value={resumeData.summary}
-                        onChange={(e) => updateSummary(e.target.value)}
-                        placeholder="Write a compelling summary of your professional background, key achievements, and career objectives..."
-                        rows={6}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {currentStep === 'experience' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Experience</CardTitle>
-                  {/* Step Progress Bar */}
-                  <div className="pt-4">
-                    <StepProgress 
-                      steps={steps} 
-                      currentStep={currentStep} 
-                      onStepClick={(stepId) => setCurrentStep(stepId as Step)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Experience Section */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-lg font-semibold">Work Experience</h4>
-                      <Button onClick={addExperience} variant="outline" size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Experience
-                      </Button>
-                    </div>
-                    
-                    {resumeData.experience?.map((exp, index) => (
-                      <div key={index} className="border rounded-lg p-4 space-y-4">
-                        <div className="flex justify-between items-start">
-                          <h5 className="font-medium">Experience {index + 1}</h5>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeExperience(index)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label>Company</Label>
-                            <Input
-                              value={exp.company}
-                              onChange={(e) => updateExperience(index, 'company', e.target.value)}
-                              placeholder="Company Name"
-                            />
-                          </div>
-                          <div>
-                            <Label>Position</Label>
-                            <Input
-                              value={exp.position}
-                              onChange={(e) => updateExperience(index, 'position', e.target.value)}
-                              placeholder="Job Title"
-                            />
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label>Start Date</Label>
-                            <Input
-                              value={exp.startDate}
-                              onChange={(e) => updateExperience(index, 'startDate', e.target.value)}
-                              placeholder="2020-01"
-                            />
-                          </div>
-                          <div>
-                            <Label>End Date</Label>
-                            <Input
-                              value={exp.endDate}
-                              onChange={(e) => updateExperience(index, 'endDate', e.target.value)}
-                              placeholder="Present or 2023-12"
-                            />
-                          </div>
-                        </div>
-                        
+                  </CardHeader>
+                  <CardContent>
+                    {/* Personal Information Step */}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label>Description</Label>
-                          <Textarea
-                            value={exp.description}
-                            onChange={(e) => updateExperience(index, 'description', e.target.value)}
-                            placeholder="Describe your responsibilities and achievements..."
-                            rows={3}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {currentStep === 'education' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Education</CardTitle>
-                  {/* Step Progress Bar */}
-                  <div className="pt-4">
-                    <StepProgress 
-                      steps={steps} 
-                      currentStep={currentStep} 
-                      onStepClick={(stepId) => setCurrentStep(stepId as Step)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Education Section */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-lg font-semibold">Education</h4>
-                      <Button onClick={addEducation} variant="outline" size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Education
-                      </Button>
-                    </div>
-                    
-                    {resumeData.education?.map((edu, index) => (
-                      <div key={index} className="border rounded-lg p-4 space-y-4">
-                        <div className="flex justify-between items-start">
-                          <h5 className="font-medium">Education {index + 1}</h5>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeEducation(index)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label>School</Label>
-                            <Input
-                              value={edu.school}
-                              onChange={(e) => updateEducation(index, 'school', e.target.value)}
-                              placeholder="University Name"
-                            />
-                          </div>
-                          <div>
-                            <Label>Degree</Label>
-                            <Input
-                              value={edu.degree}
-                              onChange={(e) => updateEducation(index, 'degree', e.target.value)}
-                              placeholder="Bachelor of Science"
-                            />
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label>Field of Study</Label>
-                            <Input
-                              value={edu.field}
-                              onChange={(e) => updateEducation(index, 'field', e.target.value)}
-                              placeholder="Computer Science"
-                            />
-                          </div>
-                          <div>
-                            <Label>Graduation Year</Label>
-                            <Input
-                              value={edu.graduationYear}
-                              onChange={(e) => updateEducation(index, 'graduationYear', e.target.value)}
-                              placeholder="2020"
-                            />
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <Label>GPA (Optional)</Label>
+                          <Label htmlFor="name">Full Name</Label>
                           <Input
-                            value={edu.gpa}
-                            onChange={(e) => updateEducation(index, 'gpa', e.target.value)}
-                            placeholder="3.8"
+                            id="name"
+                            value={resumeData.personalInfo.name}
+                            onChange={(e) => updatePersonalInfo('name', e.target.value)}
+                            placeholder="John Doe"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="title">Professional Title</Label>
+                          <Input
+                            id="title"
+                            value={resumeData.personalInfo.title}
+                            onChange={(e) => updatePersonalInfo('title', e.target.value)}
+                            placeholder="Software Engineer"
                           />
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                      
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={resumeData.personalInfo.email}
+                          onChange={(e) => updatePersonalInfo('email', e.target.value)}
+                          placeholder="john.doe@example.com"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="phone">Phone</Label>
+                        <Input
+                          id="phone"
+                          value={resumeData.personalInfo.phone}
+                          onChange={(e) => updatePersonalInfo('phone', e.target.value)}
+                          placeholder="+1 (555) 123-4567"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="location">Location</Label>
+                        <Input
+                          id="location"
+                          value={resumeData.personalInfo.location}
+                          onChange={(e) => updatePersonalInfo('location', e.target.value)}
+                          placeholder="San Francisco, CA"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="linkedin">LinkedIn (Optional)</Label>
+                        <Input
+                          id="linkedin"
+                          value={resumeData.personalInfo.linkedin}
+                          onChange={(e) => updatePersonalInfo('linkedin', e.target.value)}
+                          placeholder="linkedin.com/in/johndoe"
+                        />
+                      </div>
 
-            {currentStep === 'skills' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Skills</CardTitle>
-                  {/* Step Progress Bar */}
-                  <div className="pt-4">
-                    <StepProgress 
-                      steps={steps} 
-                      currentStep={currentStep} 
-                      onStepClick={(stepId) => setCurrentStep(stepId as Step)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Skills Section */}
-                  <div className="pt-4">
-                    <Label>Skills & Competencies</Label>
-                    <SkillsInput
-                      skills={resumeData.skills || []}
-                      onSkillsChange={updateSkills}
-                      jobRole={resumeData.personalInfo.title}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                      {currentTemplateData?.hasPhoto && (
+                        <div>
+                          <Label>Profile Photo (Optional)</Label>
+                          <PhotoUpload
+                            photo={resumeData.personalInfo.photo || null}
+                            onPhotoChange={updatePhoto}
+                          />
+                        </div>
+                      )}
 
-            {currentStep === 'languages' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Languages</CardTitle>
-                  {/* Step Progress Bar */}
-                  <div className="pt-4">
-                    <StepProgress 
-                      steps={steps} 
-                      currentStep={currentStep} 
-                      onStepClick={(stepId) => setCurrentStep(stepId as Step)}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {/* Languages Section */}
-                  <div className="pt-4">
-                    <Label>Language Proficiencies</Label>
-                    <SkillsInput
-                      skills={resumeData.languages || []}
-                      onSkillsChange={updateLanguages}
-                      jobRole={resumeData.personalInfo.title}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                      <div>
+                        <Label htmlFor="summary">Professional Summary</Label>
+                        <Textarea
+                          id="summary"
+                          value={resumeData.summary}
+                          onChange={(e) => updateSummary(e.target.value)}
+                          placeholder="Write a compelling summary of your professional background, key achievements, and career objectives..."
+                          rows={6}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-            {/* Navigation */}
-            <div className="flex items-center justify-between">
-              <Button
-                variant="outline"
-                onClick={prevStep}
-                disabled={currentStepIndex === 0}
-              >
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Previous
-              </Button>
-              
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Step {currentStepIndex + 1} of {steps.length}
-                </span>
-              </div>
-              
-              <Button
-                onClick={nextStep}
-                disabled={currentStepIndex === steps.length - 1}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </div>
+              {currentStep === 'experience' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Experience</CardTitle>
+                    {/* Step Progress Bar */}
+                    <div className="pt-4">
+                      <StepProgress 
+                        steps={steps} 
+                        currentStep={currentStep} 
+                        onStepClick={(stepId) => setCurrentStep(stepId as Step)}
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Experience Section */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-lg font-semibold">Work Experience</h4>
+                        <Button onClick={addExperience} variant="outline" size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Experience
+                        </Button>
+                      </div>
+                      
+                      {resumeData.experience?.map((exp, index) => (
+                        <div key={index} className="border rounded-lg p-4 space-y-4">
+                          <div className="flex justify-between items-start">
+                            <h5 className="font-medium">Experience {index + 1}</h5>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeExperience(index)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label>Company</Label>
+                              <Input
+                                value={exp.company}
+                                onChange={(e) => updateExperience(index, 'company', e.target.value)}
+                                placeholder="Company Name"
+                              />
+                            </div>
+                            <div>
+                              <Label>Position</Label>
+                              <Input
+                                value={exp.position}
+                                onChange={(e) => updateExperience(index, 'position', e.target.value)}
+                                placeholder="Job Title"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label>Start Date</Label>
+                              <Input
+                                value={exp.startDate}
+                                onChange={(e) => updateExperience(index, 'startDate', e.target.value)}
+                                placeholder="2020-01"
+                              />
+                            </div>
+                            <div>
+                              <Label>End Date</Label>
+                              <Input
+                                value={exp.endDate}
+                                onChange={(e) => updateExperience(index, 'endDate', e.target.value)}
+                                placeholder="Present or 2023-12"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Label>Description</Label>
+                            <Textarea
+                              value={exp.description}
+                              onChange={(e) => updateExperience(index, 'description', e.target.value)}
+                              placeholder="Describe your responsibilities and achievements..."
+                              rows={3}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-          {/* Preview */}
-          <div className="lg:sticky lg:top-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Live Preview</CardTitle>
+              {currentStep === 'education' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Education</CardTitle>
+                    {/* Step Progress Bar */}
+                    <div className="pt-4">
+                      <StepProgress 
+                        steps={steps} 
+                        currentStep={currentStep} 
+                        onStepClick={(stepId) => setCurrentStep(stepId as Step)}
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Education Section */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-lg font-semibold">Education</h4>
+                        <Button onClick={addEducation} variant="outline" size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Education
+                        </Button>
+                      </div>
+                      
+                      {resumeData.education?.map((edu, index) => (
+                        <div key={index} className="border rounded-lg p-4 space-y-4">
+                          <div className="flex justify-between items-start">
+                            <h5 className="font-medium">Education {index + 1}</h5>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeEducation(index)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label>School</Label>
+                              <Input
+                                value={edu.school}
+                                onChange={(e) => updateEducation(index, 'school', e.target.value)}
+                                placeholder="University Name"
+                              />
+                            </div>
+                            <div>
+                              <Label>Degree</Label>
+                              <Input
+                                value={edu.degree}
+                                onChange={(e) => updateEducation(index, 'degree', e.target.value)}
+                                placeholder="Bachelor of Science"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label>Field of Study</Label>
+                              <Input
+                                value={edu.field}
+                                onChange={(e) => updateEducation(index, 'field', e.target.value)}
+                                placeholder="Computer Science"
+                              />
+                            </div>
+                            <div>
+                              <Label>Graduation Year</Label>
+                              <Input
+                                value={edu.graduationYear}
+                                onChange={(e) => updateEducation(index, 'graduationYear', e.target.value)}
+                                placeholder="2020"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Label>GPA (Optional)</Label>
+                            <Input
+                              value={edu.gpa}
+                              onChange={(e) => updateEducation(index, 'gpa', e.target.value)}
+                              placeholder="3.8"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {currentStep === 'skills' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Skills</CardTitle>
+                    {/* Step Progress Bar */}
+                    <div className="pt-4">
+                      <StepProgress 
+                        steps={steps} 
+                        currentStep={currentStep} 
+                        onStepClick={(stepId) => setCurrentStep(stepId as Step)}
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Skills Section */}
+                    <div className="pt-4">
+                      <Label>Skills & Competencies</Label>
+                      <SkillsInput
+                        skills={resumeData.skills || []}
+                        onSkillsChange={updateSkills}
+                        jobRole={resumeData.personalInfo.title}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {currentStep === 'languages' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Languages</CardTitle>
+                    {/* Step Progress Bar */}
+                    <div className="pt-4">
+                      <StepProgress 
+                        steps={steps} 
+                        currentStep={currentStep} 
+                        onStepClick={(stepId) => setCurrentStep(stepId as Step)}
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Languages Section */}
+                    <div className="pt-4">
+                      <Label>Language Proficiencies</Label>
+                      <SkillsInput
+                        skills={resumeData.languages || []}
+                        onSkillsChange={updateLanguages}
+                        jobRole={resumeData.personalInfo.title}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Navigation */}
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  onClick={prevStep}
+                  disabled={currentStepIndex === 0}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Previous
+                </Button>
+                
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{currentTemplateData?.name}</Badge>
-                  <Badge variant="outline" className="text-green-600 border-green-600">
-                    <Eye className="h-3 w-3 mr-1" />
-                    Live
-                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    Step {currentStepIndex + 1} of {steps.length}
+                  </span>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <ResumePreview data={resumeData} template={selectedTemplate} />
-              </CardContent>
-            </Card>
+                
+                <Button
+                  onClick={nextStep}
+                  disabled={currentStepIndex === steps.length - 1}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className="lg:sticky lg:top-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Live Preview</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{currentTemplateData?.name}</Badge>
+                    <Badge variant="outline" className="text-green-600 border-green-600">
+                      <Eye className="h-3 w-3 mr-1" />
+                      Live
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ResumePreview data={debouncedResumeData} template={selectedTemplate} />
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>

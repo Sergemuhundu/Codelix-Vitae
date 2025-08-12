@@ -26,11 +26,11 @@ const faqCategories = [
     icon: HelpCircle,
     questions: [
       {
-        question: 'What is CodelixVitae?',
-        answer: 'CodelixVitae is an AI-powered resume builder that helps you create professional resumes with beautiful templates. It offers features like ATS optimization, cover letter generation, and multiple professional templates.'
+        question: 'What is CVAdapter?',
+        answer: 'CVAdapter is an AI-powered resume builder that helps you create professional resumes with beautiful templates. It offers features like ATS optimization, cover letter generation, and multiple professional templates.'
       },
       {
-        question: 'Is CodelixVitae free to use?',
+        question: 'Is CVAdapter free to use?',
         answer: 'We offer both free and premium plans. The free plan includes basic resume building features, while premium plans offer advanced features like unlimited resumes, premium templates, and priority support.'
       },
       {
@@ -141,7 +141,7 @@ export default function FAQPage() {
             <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
               <FileText className="h-6 w-6 text-primary-foreground" />
             </div>
-            <h1 className="text-3xl font-bold">CodelixVitae</h1>
+            <h1 className="text-3xl font-bold">CVAdapter</h1>
           </div>
           <p className="text-muted-foreground">
             AI-Powered Resume Builder
@@ -162,7 +162,7 @@ export default function FAQPage() {
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-4">Frequently Asked Questions</h1>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Find answers to common questions about CodelixVitae. Can't find what you're looking for? 
+              Find answers to common questions about CVAdapter. Can't find what you're looking for? 
               <Link href="/contact" className="text-primary hover:underline ml-1">
                 Contact our support team
               </Link>

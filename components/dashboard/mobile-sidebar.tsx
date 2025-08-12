@@ -43,15 +43,15 @@ export function MobileSidebar() {
       <SheetContent side="left" className="w-64 p-0">
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-border">
-            <div className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity" onClick={() => setOpen(false)}>
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <FileText className="h-4 w-4 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="font-bold text-lg">CodelixVitae</h1>
+                <h1 className="font-bold text-lg">CVAdapter</h1>
                 <p className="text-xs text-muted-foreground">AI Resume Builder</p>
               </div>
-            </div>
+            </Link>
           </div>
 
           <nav className="flex-1 p-4 space-y-2">

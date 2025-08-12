@@ -240,7 +240,7 @@ export default function BillingPage() {
                     </span>
                   </div>
                   <Progress 
-                    value={usage.limits.resumes === 'unlimited' ? 0 : (usage.resumes / usage.limits.resumes) * 100} 
+                    value={usage.limits.resumes === 'unlimited' ? 0 : (usage.resumes / Number(usage.limits.resumes)) * 100} 
                   />
                 </div>
 
@@ -252,7 +252,7 @@ export default function BillingPage() {
                     </span>
                   </div>
                   <Progress 
-                    value={usage.limits.coverLetters === 'unlimited' ? 0 : (usage.coverLetters / usage.limits.coverLetters) * 100} 
+                    value={usage.limits.coverLetters === 'unlimited' ? 0 : (usage.coverLetters / Number(usage.limits.coverLetters)) * 100} 
                   />
                 </div>
 
@@ -264,7 +264,7 @@ export default function BillingPage() {
                     </span>
                   </div>
                   <Progress 
-                    value={usage.limits.atsScans === 'unlimited' ? 0 : (usage.atsScans / usage.limits.atsScans) * 100} 
+                    value={usage.limits.atsScans === 'unlimited' ? 0 : (usage.atsScans / Number(usage.limits.atsScans)) * 100} 
                   />
                 </div>
               </div>

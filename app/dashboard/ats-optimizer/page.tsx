@@ -187,7 +187,7 @@ export default function ATSOptimizerPage() {
                     <div key={section} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                       <div className="flex items-center gap-3">
                         <div className="capitalize font-medium">{section}</div>
-                        <Badge variant="outline" size="sm">
+                        <Badge variant="outline">
                           {data.suggestions} suggestions
                         </Badge>
                       </div>
@@ -261,7 +261,7 @@ export default function ATSOptimizerPage() {
                               suggestion.priority === 'high' ? 'destructive' :
                               suggestion.priority === 'medium' ? 'secondary' :
                               'outline'
-                            } size="sm">
+                            }>
                               {suggestion.priority} priority
                             </Badge>
                             <span className="font-medium">{suggestion.issue}</span>

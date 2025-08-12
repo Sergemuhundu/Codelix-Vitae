@@ -10,12 +10,12 @@ export default function HomePage() {
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <FileText className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold">CodelixVitae</span>
-          </div>
+            <span className="text-xl font-bold">CVAdapter</span>
+          </Link>
           <div className="flex items-center gap-4">
             <Link href="/auth/login">
               <Button variant="ghost">Sign In</Button>
@@ -34,16 +34,13 @@ export default function HomePage() {
           AI-Powered Resume Builder
         </Badge>
         <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
-          Create Resumes That
-          <br />
-          Get You Hired
+          CVAdapter
         </h1>
         <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-          Build professional, ATS-optimized resumes with AI assistance. 
-          Stand out from the crowd and land your dream job faster.
+          Create Professional Resumes with AI. Build stunning resumes that stand out from the crowd.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link href="/auth/signup">
+          <Link href="/templates">
             <Button size="lg" className="text-lg px-8">
               Start Building Free
               <ArrowRight className="ml-2 h-5 w-5" />
@@ -151,9 +148,9 @@ export default function HomePage() {
               Ready to Transform Your Career?
             </h2>
             <p className="text-xl mb-8 opacity-90">
-              Join thousands of professionals who have landed their dream jobs with CodelixVitae.
+              Join thousands of professionals who have landed their dream jobs with CVAdapter.
             </p>
-            <Link href="/auth/signup">
+            <Link href="/templates">
               <Button size="lg" variant="secondary" className="text-lg px-8">
                 Start Your Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -171,10 +168,10 @@ export default function HomePage() {
               <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
                 <FileText className="h-3 w-3 text-primary-foreground" />
               </div>
-              <span className="font-semibold">CodelixVitae</span>
+                              <span className="font-semibold">CVAdapter</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              © 2024 CodelixVitae. All rights reserved.
+              © 2024 CVAdapter. All rights reserved.
             </div>
           </div>
         </div>

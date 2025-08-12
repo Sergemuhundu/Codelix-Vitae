@@ -31,7 +31,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
-      text: 'Hello! Welcome to CodelixVitae support. How can I help you today?',
+      text: 'Hello! Welcome to CVAdapter support. How can I help you today?',
       sender: 'agent',
       timestamp: new Date(),
       status: 'read'

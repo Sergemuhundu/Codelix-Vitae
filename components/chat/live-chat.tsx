@@ -136,7 +136,7 @@ export function LiveChat({ className }: LiveChatProps) {
                 )} />
               </div>
               <div>
-                <CardTitle className="text-sm">CodelixVitae Support</CardTitle>
+                <CardTitle className="text-sm">CVAdapter Support</CardTitle>
                 <div className="flex items-center gap-1 text-xs opacity-90">
                   <div className={cn("h-2 w-2 rounded-full", getAgentStatusColor())} />
                   {agentStatus === 'online' ? 'Online' : agentStatus === 'away' ? 'Away' : 'Offline'}

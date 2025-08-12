@@ -30,7 +30,7 @@ export default function GlobalError({
                 <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
                   <FileText className="h-6 w-6 text-primary-foreground" />
                 </div>
-                <h1 className="text-3xl font-bold">CodelixVitae</h1>
+                <h1 className="text-3xl font-bold">CVAdapter</h1>
               </div>
               <p className="text-muted-foreground">
                 AI-Powered Resume Builder

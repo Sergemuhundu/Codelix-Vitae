@@ -4,6 +4,23 @@ import { AVAILABLE_TEMPLATES } from '@/lib/templates';
 export function generateHTML(data: ResumeData, template: string = 'modern'): string {
   const { personalInfo, summary, experience, education, skills } = data;
 
+  // Helper function to show placeholder when data is empty
+  const getPlaceholder = (value: string, placeholder: string) => {
+    return value && value.trim() !== '' ? value : placeholder;
+  };
+
+  const getPlaceholderOrEmpty = (value: string, placeholder: string) => {
+    return value && value.trim() !== '' ? value : `<span style="color: #9ca3af; font-style: italic;">${placeholder}</span>`;
+  };
+
+  const getInitials = (name: string) => {
+    return name && name.trim() !== '' ? name.split(' ').map(n => n[0]).join('').toUpperCase() : 'JD';
+  };
+
+  const getFirstName = (name: string) => {
+    return name && name.trim() !== '' ? name.split(' ')[0] : 'John';
+  };
+
   // Get the actual template data
   const templateData = AVAILABLE_TEMPLATES.find(t => t.id === template);
   
@@ -466,10 +483,10 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
               <div class="sidebar">
                 <div class="profile-picture-container">
                   <div class="profile-picture">
-                    ${personalInfo.photo ? `<img src="${personalInfo.photo}" alt="Profile Picture" style="transform: scale(${personalInfo.photoAdjustments?.scale || 1}) translate(${personalInfo.photoAdjustments?.translateX || 0}px, ${personalInfo.photoAdjustments?.translateY || 0}px) rotate(${personalInfo.photoAdjustments?.rotation || 0}deg);">` : personalInfo.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    ${personalInfo.photo ? `<img src="${personalInfo.photo}" alt="Profile Picture" style="transform: scale(${personalInfo.photoAdjustments?.scale || 1}) translate(${personalInfo.photoAdjustments?.translateX || 0}px, ${personalInfo.photoAdjustments?.translateY || 0}px) rotate(${personalInfo.photoAdjustments?.rotation || 0}deg);">` : getInitials(personalInfo.name)}
                   </div>
                   <div class="signature">
-                    <div class="signature-text">${personalInfo.name.split(' ')[0]}</div>
+                    <div class="signature-text">${getFirstName(personalInfo.name)}</div>
                   </div>
                 </div>
                 
@@ -531,8 +548,8 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
 
               <div class="main-content">
                 <div class="main-header">
-                  <div class="main-name">${personalInfo.name}</div>
-                  <div class="main-title">${personalInfo.title}</div>
+                                  <div class="main-name">${getPlaceholderOrEmpty(personalInfo.name, 'Your Name')}</div>
+                <div class="main-title">${getPlaceholderOrEmpty(personalInfo.title, 'Professional Title')}</div>
                   <div class="header-divider"></div>
                 </div>
 
@@ -897,7 +914,7 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
               <div class="sidebar">
                 <div class="profile-picture-container">
                   <div class="profile-picture">
-                    ${personalInfo.photo ? `<img src="${personalInfo.photo}" alt="Profile Picture" style="transform: scale(${personalInfo.photoAdjustments?.scale || 1}) translate(${personalInfo.photoAdjustments?.translateX || 0}px, ${personalInfo.photoAdjustments?.translateY || 0}px) rotate(${personalInfo.photoAdjustments?.rotation || 0}deg);">` : personalInfo.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    ${personalInfo.photo ? `<img src="${personalInfo.photo}" alt="Profile Picture" style="transform: scale(${personalInfo.photoAdjustments?.scale || 1}) translate(${personalInfo.photoAdjustments?.translateX || 0}px, ${personalInfo.photoAdjustments?.translateY || 0}px) rotate(${personalInfo.photoAdjustments?.rotation || 0}deg);">` : getInitials(personalInfo.name)}
                   </div>
                 </div>
                 
@@ -957,8 +974,8 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
 
               <div class="main-content">
                 <div class="main-header">
-                  <div class="main-name">${personalInfo.name}</div>
-                  <div class="main-title">${personalInfo.title}</div>
+                  <div class="main-name">${getPlaceholderOrEmpty(personalInfo.name, 'Your Name')}</div>
+                  <div class="main-title">${getPlaceholderOrEmpty(personalInfo.title, 'Professional Title')}</div>
                 </div>
 
                 ${summary ? `
@@ -1371,7 +1388,7 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
             <div class="page">
               <div class="sidebar">
                 <div class="profile-picture">
-                  ${personalInfo.photo ? `<img src="${personalInfo.photo}" alt="Profile Picture" style="transform: scale(${personalInfo.photoAdjustments?.scale || 1}) translate(${personalInfo.photoAdjustments?.translateX || 0}px, ${personalInfo.photoAdjustments?.translateY || 0}px) rotate(${personalInfo.photoAdjustments?.rotation || 0}deg);">` : personalInfo.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  ${personalInfo.photo ? `<img src="${personalInfo.photo}" alt="Profile Picture" style="transform: scale(${personalInfo.photoAdjustments?.scale || 1}) translate(${personalInfo.photoAdjustments?.translateX || 0}px, ${personalInfo.photoAdjustments?.translateY || 0}px) rotate(${personalInfo.photoAdjustments?.rotation || 0}deg);">` : getInitials(personalInfo.name)}
                 </div>
                 
                 <div class="sidebar-section">
@@ -1416,8 +1433,8 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
 
               <div class="main-content">
                 <div class="main-header">
-                  <div class="name"><strong>${personalInfo.name}</strong></div>
-                  <div class="title">${personalInfo.title}</div>
+                  <div class="name"><strong>${getPlaceholderOrEmpty(personalInfo.name, 'Your Name')}</strong></div>
+                  <div class="title">${getPlaceholderOrEmpty(personalInfo.title, 'Professional Title')}</div>
                 </div>
 
                 ${summary ? `
@@ -1505,10 +1522,10 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
             <div class="container">
               <div class="sidebar">
                 <div class="profile-picture">
-                  ${personalInfo.photo ? `<img src="${personalInfo.photo}" alt="Profile Picture" style="transform: scale(${personalInfo.photoAdjustments?.scale || 1}) translate(${personalInfo.photoAdjustments?.translateX || 0}px, ${personalInfo.photoAdjustments?.translateY || 0}px) rotate(${personalInfo.photoAdjustments?.rotation || 0}deg);">` : personalInfo.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  ${personalInfo.photo ? `<img src="${personalInfo.photo}" alt="Profile Picture" style="transform: scale(${personalInfo.photoAdjustments?.scale || 1}) translate(${personalInfo.photoAdjustments?.translateX || 0}px, ${personalInfo.photoAdjustments?.translateY || 0}px) rotate(${personalInfo.photoAdjustments?.rotation || 0}deg);">` : getInitials(personalInfo.name)}
                 </div>
-                <div class="name">${personalInfo.name}</div>
-                <div class="title">${personalInfo.title}</div>
+                <div class="name">${getPlaceholderOrEmpty(personalInfo.name, 'Your Name')}</div>
+                <div class="title">${getPlaceholderOrEmpty(personalInfo.title, 'Professional Title')}</div>
                 
                 <div class="contact-info">
                   <div class="contact-item">📧 ${personalInfo.email}</div>
@@ -1588,65 +1605,74 @@ export function generateHTML(data: ResumeData, template: string = 'modern'): str
     </head>
     <body>
       <div class="header">
-        <div class="name">${personalInfo.name}</div>
-        <div class="title">${personalInfo.title}</div>
+        <div class="name">${getPlaceholderOrEmpty(personalInfo.name, 'Your Name')}</div>
+        <div class="title">${getPlaceholderOrEmpty(personalInfo.title, 'Professional Title')}</div>
         <div class="contact">
-          <div class="contact-item">📧 ${personalInfo.email}</div>
-          <div class="contact-item">📱 ${personalInfo.phone}</div>
+          <div class="contact-item">📧 ${getPlaceholderOrEmpty(personalInfo.email, 'your.email@example.com')}</div>
+          <div class="contact-item">📱 ${getPlaceholderOrEmpty(personalInfo.phone, '+1 (555) 123-4567')}</div>
           ${personalInfo.location ? `<div class="contact-item">📍 ${personalInfo.location}</div>` : ''}
           ${personalInfo.linkedin ? `<div class="contact-item">💼 ${personalInfo.linkedin}</div>` : ''}
         </div>
       </div>
 
-      ${summary ? `
-        <div class="section">
-          <div class="section-title">Professional Summary</div>
-          <div class="summary">${summary}</div>
-        </div>
-      ` : ''}
+      <div class="section">
+        <div class="section-title">Professional Summary</div>
+        <div class="summary">${getPlaceholderOrEmpty(summary || '', 'Experienced professional with a proven track record of success. Skilled in [your key skills] with expertise in [your areas of specialization]. Passionate about delivering high-quality results and driving innovation in [your industry/field].')}</div>
+      </div>
 
-      ${experience && experience.length > 0 ? `
-        <div class="section">
-          <div class="section-title">Professional Experience</div>
-          ${experience.map(exp => `
-            <div class="experience-item">
-              <div class="experience-header">
-                <div class="company">${exp.company}</div>
-                <div class="date">${exp.startDate} - ${exp.endDate || 'Present'}</div>
-              </div>
-              <div class="position">${exp.position}</div>
-              <div class="description">${exp.description}</div>
+      <div class="section">
+        <div class="section-title">Professional Experience</div>
+        ${experience && experience.length > 0 ? experience.map(exp => `
+          <div class="experience-item">
+            <div class="experience-header">
+              <div class="company">${exp.company}</div>
+              <div class="date">${exp.startDate} - ${exp.endDate || 'Present'}</div>
             </div>
-          `).join('')}
-        </div>
-      ` : ''}
-
-      ${education && education.length > 0 ? `
-        <div class="section">
-          <div class="section-title">Education</div>
-          ${education.map(edu => `
-            <div class="education-item">
-              <div class="education-header">
-                <div class="school">${edu.school}</div>
-                <div class="date">${edu.graduationYear}</div>
-              </div>
-              <div class="degree">${edu.degree}${edu.field ? ` in ${edu.field}` : ''}</div>
-              ${edu.gpa ? `<div class="description">GPA: ${edu.gpa}</div>` : ''}
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-
-      ${skills && skills.length > 0 ? `
-        <div class="section">
-          <div class="section-title">Skills</div>
-          <div class="skills">
-            ${skills.map(skill => `
-              <span class="skill">${skill}</span>
-            `).join('')}
+            <div class="position">${exp.position}</div>
+            <div class="description">${exp.description}</div>
           </div>
+        `).join('') : `<div class="experience-item">
+          <div class="experience-header">
+            <div class="company">${getPlaceholderOrEmpty('', 'Company Name')}</div>
+            <div class="date">${getPlaceholderOrEmpty('', 'Start Date')} - ${getPlaceholderOrEmpty('', 'End Date')}</div>
+          </div>
+          <div class="position">${getPlaceholderOrEmpty('', 'Job Title')}</div>
+          <div class="description">${getPlaceholderOrEmpty('', 'Describe your key responsibilities and achievements in this role. Highlight specific projects, technologies used, and measurable outcomes.')}</div>
+        </div>`}
+      </div>
+
+      <div class="section">
+        <div class="section-title">Education</div>
+        ${education && education.length > 0 ? education.map(edu => `
+          <div class="education-item">
+            <div class="education-header">
+              <div class="school">${edu.school}</div>
+              <div class="date">${edu.graduationYear}</div>
+            </div>
+            <div class="degree">${edu.degree}${edu.field ? ` in ${edu.field}` : ''}</div>
+            ${edu.gpa ? `<div class="description">GPA: ${edu.gpa}</div>` : ''}
+          </div>
+        `).join('') : `<div class="education-item">
+          <div class="education-header">
+            <div class="school">${getPlaceholderOrEmpty('', 'University Name')}</div>
+            <div class="date">${getPlaceholderOrEmpty('', 'Graduation Year')}</div>
+          </div>
+          <div class="degree">${getPlaceholderOrEmpty('', 'Degree')} in ${getPlaceholderOrEmpty('', 'Field of Study')}</div>
+        </div>`}
+      </div>
+
+      <div class="section">
+        <div class="section-title">Skills</div>
+        <div class="skills">
+          ${skills && skills.length > 0 ? skills.map(skill => `
+            <span class="skill">${skill}</span>
+          `).join('') : `<span class="skill">${getPlaceholderOrEmpty('', 'Skill 1')}</span>
+          <span class="skill">${getPlaceholderOrEmpty('', 'Skill 2')}</span>
+          <span class="skill">${getPlaceholderOrEmpty('', 'Skill 3')}</span>
+          <span class="skill">${getPlaceholderOrEmpty('', 'Skill 4')}</span>
+          <span class="skill">${getPlaceholderOrEmpty('', 'Skill 5')}</span>`}
         </div>
-      ` : ''}
+      </div>
     </body>
     </html>
   `;

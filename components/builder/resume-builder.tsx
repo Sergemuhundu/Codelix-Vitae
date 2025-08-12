@@ -307,7 +307,7 @@ export function ResumeBuilder({ initialTemplate = 'modern' }: { initialTemplate?
                   {/* Photo Upload - Only show if template supports it */}
                   {currentTemplateData?.hasPhoto && (
                     <PhotoUpload
-                      photo={resumeData.personalInfo.photo}
+                      photo={resumeData.personalInfo.photo || null}
                       onPhotoChange={updatePhoto}
                       name={resumeData.personalInfo.name}
                       photoAdjustments={resumeData.personalInfo.photoAdjustments}
